@@ -36,13 +36,13 @@ function translateApiError(message, fallback = 'Произошла ошибка.
   return API_ERROR_MESSAGES[message] || message || fallback
 }
 
-function getAccessTokenFromResponse(data) {
+function getAccessToken(data) {
   return data?.accessToken || data?.token || ''
 }
 
-function setSession(authData) {
-  user.value = authData.user || null
-  accessToken.value = getAccessTokenFromResponse(authData)
+function setSession(data) {
+  user.value = data?.user || null
+  accessToken.value = getAccessToken(data)
 }
 
 function clearSession() {
@@ -52,10 +52,10 @@ function clearSession() {
 
 function isAuthError(message) {
   return [
+    'Unauthorized',
+    'Token is required',
     'Token expired',
     'Invalid token',
-    'Token is required',
-    'Unauthorized',
   ].includes(message)
 }
 
@@ -138,11 +138,11 @@ export function useAuth() {
     return Boolean(accessToken.value)
   })
 
-  const clearError = () => {
+  function clearError() {
     error.value = ''
   }
 
-  const signIn = async (payload) => {
+  async function signIn(payload) {
     isLoading.value = true
     clearError()
 
@@ -173,7 +173,7 @@ export function useAuth() {
     }
   }
 
-  const signUp = async (payload) => {
+  async function signUp(payload) {
     isLoading.value = true
     clearError()
 
@@ -206,7 +206,7 @@ export function useAuth() {
     }
   }
 
-  const fetchCurrentUser = async () => {
+  async function fetchCurrentUser() {
     isLoading.value = true
     clearError()
 
@@ -245,7 +245,7 @@ export function useAuth() {
     }
   }
 
-  const checkAuthField = async ({ field, value }) => {
+  async function checkAuthField({ field, value }) {
     clearError()
 
     try {
@@ -269,7 +269,7 @@ export function useAuth() {
     }
   }
 
-  const logout = async () => {
+  async function logout() {
     isLoading.value = true
     clearError()
 
@@ -278,7 +278,7 @@ export function useAuth() {
         method: 'POST',
       })
     } catch {
-      // Даже если backend недоступен, локально всё равно выходим.
+      // Локально всё равно выходим.
     } finally {
       clearSession()
       isInitialized.value = true
@@ -286,24 +286,7 @@ export function useAuth() {
     }
   }
 
-  const logoutAll = async () => {
-    isLoading.value = true
-    clearError()
-
-    try {
-      await requestWithRefresh('/api/auth/logout-all', {
-        method: 'POST',
-      })
-    } catch {
-      // Даже если backend недоступен, локально всё равно выходим.
-    } finally {
-      clearSession()
-      isInitialized.value = true
-      isLoading.value = false
-    }
-  }
-
-  const initializeAuth = async () => {
+  async function initializeAuth() {
     if (isInitialized.value) {
       return isAuthenticated.value
     }
@@ -328,7 +311,6 @@ export function useAuth() {
     refreshAccessToken,
     initializeAuth,
     logout,
-    logoutAll,
     clearError,
   }
 }

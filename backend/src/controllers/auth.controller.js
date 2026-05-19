@@ -309,9 +309,10 @@ export async function refresh(req, res, next) {
       return error(res, 'Invalid refresh token', 401)
     }
 
+    // Важно:
+    // Не отзываем все сессии пользователя.
+    // Просто очищаем cookie на текущем устройстве.
     if (session.revoked_at) {
-      await revokeAllUserSessions(session.user_id)
-
       clearRefreshCookie(res)
 
       return error(res, 'Invalid refresh token', 401)
@@ -335,7 +336,7 @@ export async function refresh(req, res, next) {
     }
 
     if (!user.is_active) {
-      await revokeAllUserSessions(user.id)
+      await revokeSessionById(session.id)
 
       clearRefreshCookie(res)
 

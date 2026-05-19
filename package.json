@@ -12,11 +12,15 @@
     "backend_start": "npm --prefix backend run start",
 
     "dev": "concurrently \"npm run frontend\" \"npm run backend\"",
+
+    "build": "npm --prefix frontend run build",
+
     "start": "concurrently \"npm run frontend_start\" \"npm run backend_start\"",
 
-    "build": "npm --prefix frontend run build"
+    "web": "npm run build && concurrently \"npm run start\" \"wait-on http://localhost:4173 && cloudflared tunnel --url http://localhost:4173\""
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "wait-on": "^8.0.0"
   }
 }
