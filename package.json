@@ -3,12 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "install_all": "npm install && npm --prefix frontend install && npm --prefix backend install",
+
     "frontend": "npm --prefix frontend run dev",
     "frontend_start": "npm --prefix frontend run preview",
+
     "backend": "npm --prefix backend run dev",
     "backend_start": "npm --prefix backend run start",
+
     "dev": "concurrently \"npm run frontend\" \"npm run backend\"",
     "start": "concurrently \"npm run frontend_start\" \"npm run backend_start\"",
+
     "build": "npm --prefix frontend run build"
   },
   "devDependencies": {
