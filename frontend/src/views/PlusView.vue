@@ -123,6 +123,26 @@
             </div>
 
             <div class="qala-form-group">
+              <label>Ссылка на место</label>
+
+              <input
+                v-model.trim="form.locationUrl"
+                type="url"
+                class="qala-input"
+                placeholder="Например: ссылка из Google Maps или 2GIS"
+                required
+                @blur="validateLocationUrl"
+              />
+
+              <small
+                class="qala-field-hint"
+                :class="{ error: errors.locationUrl }"
+              >
+                {{ errors.locationUrl || 'Вставь ссылку на место события из Google Maps, 2GIS или другой карты' }}
+              </small>
+            </div>
+
+            <div class="qala-form-group">
               <label>Описание</label>
 
               <textarea
@@ -134,15 +154,130 @@
               ></textarea>
             </div>
 
+            <div class="qala-form-group">
+              <label>Программа</label>
+
+              <div class="qala-program-list">
+                <div
+                  v-for="(item, index) in form.program"
+                  :key="item.id"
+                  class="qala-program-item"
+                >
+                  <div class="qala-program-item-top">
+                    <strong>Пункт {{ index + 1 }}</strong>
+
+                    <div class="qala-program-actions">
+                      <button
+                        type="button"
+                        class="qala-program-action-btn"
+                        :disabled="index === 0"
+                        title="Поднять выше"
+                        @click="moveProgramItem(index, -1)"
+                      >
+                        <i class="bi bi-arrow-up"></i>
+                      </button>
+
+                      <button
+                        type="button"
+                        class="qala-program-action-btn"
+                        :disabled="index === form.program.length - 1"
+                        title="Опустить ниже"
+                        @click="moveProgramItem(index, 1)"
+                      >
+                        <i class="bi bi-arrow-down"></i>
+                      </button>
+
+                      <button
+                        type="button"
+                        class="qala-program-remove"
+                        title="Удалить пункт"
+                        @click="removeProgramItem(index)"
+                      >
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="qala-form-row">
+                    <div class="qala-form-group">
+                      <label>Время</label>
+
+                      <input
+                        v-model="item.time"
+                        type="time"
+                        class="qala-input"
+                      />
+                    </div>
+
+                    <div class="qala-form-group">
+                      <label>Название</label>
+
+                      <input
+                        v-model="item.title"
+                        type="text"
+                        class="qala-input"
+                        placeholder="Например: Сбор гостей"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="qala-form-group">
+                    <label>Описание</label>
+
+                    <textarea
+                      v-model="item.description"
+                      class="qala-textarea qala-program-textarea"
+                      rows="2"
+                      placeholder="Кратко опиши, что будет происходить"
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                class="qala-program-add"
+                @click="addProgramItem"
+              >
+                <i class="bi bi-plus-lg"></i>
+                <span>Добавить пункт</span>
+              </button>
+            </div>
+
+            <div class="qala-form-group">
+              <label>Тип посещения</label>
+
+              <div class="qala-visit-type-grid">
+                <button
+                  v-for="type in visitTypes"
+                  :key="type.value"
+                  type="button"
+                  class="qala-visit-type-btn"
+                  :class="{ active: form.visitType === type.value }"
+                  @click="setVisitType(type.value)"
+                >
+                  <i :class="type.icon"></i>
+
+                  <span>{{ type.label }}</span>
+                </button>
+              </div>
+            </div>
+
             <div class="qala-form-row">
-              <div class="qala-form-group">
-                <label>Стоимость</label>
+              <div
+                v-if="form.visitType === 'paid'"
+                class="qala-form-group"
+              >
+                <label>Цена, ₸</label>
 
                 <input
-                  v-model="form.price"
-                  type="text"
+                  v-model.number="form.price"
+                  type="number"
+                  min="1"
+                  step="1"
                   class="qala-input"
-                  placeholder="Бесплатно / от 3000 ₸"
+                  placeholder="Например: 3000"
+                  required
                 />
               </div>
 
@@ -207,8 +342,46 @@
 
                     <span>
                       <i class="bi bi-ticket-perforated"></i>
-                      {{ form.price || 'Бесплатно' }}
+                      {{ previewPrice }}
                     </span>
+                  </div>
+
+                  <a
+                    v-if="isValidLocationUrl"
+                    :href="form.locationUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="qala-preview-map-link"
+                  >
+                    <i class="bi bi-map"></i>
+                    <span>Открыть на карте</span>
+                  </a>
+                </div>
+              </div>
+
+              <div
+                v-if="previewProgram.length"
+                class="qala-preview-program"
+              >
+                <h4>Программа</h4>
+
+                <div
+                  v-for="item in previewProgram"
+                  :key="item.id"
+                  class="qala-preview-program-item"
+                >
+                  <div class="qala-preview-program-time">
+                    {{ item.time || '00:00' }}
+                  </div>
+
+                  <div class="qala-preview-program-content">
+                    <strong>
+                      {{ item.title || 'Название пункта' }}
+                    </strong>
+
+                    <p v-if="item.description">
+                      {{ item.description }}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -246,38 +419,26 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-const goBack = () => {
-  if (window.history.length > 1) {
-    router.back()
-    return
-  }
-
-  router.push('/')
-}
-
-const isSubmitted = ref(false)
-
 const categories = [
   'Концерты',
   'Образование',
   'Спорт',
   'Бизнес',
   'Выставки',
-  'Бесплатно',
 ]
 
-const form = reactive({
-  title: '',
-  category: 'Концерты',
-  date: '',
-  time: '',
-  location: '',
-  address: '',
-  description: '',
-  price: '',
-  limit: '',
-  image: '',
-})
+const visitTypes = [
+  {
+    value: 'free',
+    label: 'Бесплатно',
+    icon: 'bi bi-gift',
+  },
+  {
+    value: 'paid',
+    label: 'Платно',
+    icon: 'bi bi-cash-coin',
+  },
+]
 
 const months = [
   'ЯНВ',
@@ -293,6 +454,64 @@ const months = [
   'НОЯ',
   'ДЕК',
 ]
+
+const isSubmitted = ref(false)
+
+const errors = reactive({
+  locationUrl: '',
+})
+
+let programId = 1
+
+const createEmptyProgramItem = () => ({
+  id: programId++,
+  time: '',
+  title: '',
+  description: '',
+})
+
+const form = reactive({
+  title: '',
+  category: 'Концерты',
+  date: '',
+  time: '',
+  location: '',
+  address: '',
+  locationUrl: '',
+  description: '',
+  visitType: 'free',
+  price: '',
+  limit: '',
+  image: '',
+  program: [createEmptyProgramItem()],
+})
+
+const goBack = () => {
+  if (window.history.length > 1) {
+    router.back()
+    return
+  }
+
+  router.push('/')
+}
+
+const isUrl = (value) => {
+  if (!value) {
+    return false
+  }
+
+  try {
+    const url = new URL(value)
+
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+const isValidLocationUrl = computed(() => {
+  return isUrl(form.locationUrl)
+})
 
 const previewDay = computed(() => {
   if (!form.date) {
@@ -310,6 +529,47 @@ const previewMonth = computed(() => {
   return months[new Date(form.date).getMonth()]
 })
 
+const previewProgram = computed(() => {
+  return form.program.filter((item) => {
+    return item.time || item.title || item.description
+  })
+})
+
+const previewPrice = computed(() => {
+  if (form.visitType === 'free') {
+    return 'Бесплатно'
+  }
+
+  if (!form.price || Number(form.price) < 1) {
+    return 'Цена не указана'
+  }
+
+  return `${Number(form.price).toLocaleString('ru-RU')} ₸`
+})
+
+const validateLocationUrl = () => {
+  if (!form.locationUrl) {
+    errors.locationUrl = 'Ссылка на место обязательна'
+    return false
+  }
+
+  if (!isUrl(form.locationUrl)) {
+    errors.locationUrl = 'Введите корректную ссылку, например из Google Maps или 2GIS'
+    return false
+  }
+
+  errors.locationUrl = ''
+  return true
+}
+
+const setVisitType = (type) => {
+  form.visitType = type
+
+  if (type === 'free') {
+    form.price = ''
+  }
+}
+
 const handleImageUpload = (event) => {
   const file = event.target.files?.[0]
 
@@ -320,6 +580,30 @@ const handleImageUpload = (event) => {
   form.image = URL.createObjectURL(file)
 }
 
+const addProgramItem = () => {
+  form.program.push(createEmptyProgramItem())
+}
+
+const removeProgramItem = (index) => {
+  if (form.program.length === 1) {
+    form.program[0] = createEmptyProgramItem()
+    return
+  }
+
+  form.program.splice(index, 1)
+}
+
+const moveProgramItem = (index, direction) => {
+  const targetIndex = index + direction
+
+  if (targetIndex < 0 || targetIndex >= form.program.length) {
+    return
+  }
+
+  const [item] = form.program.splice(index, 1)
+  form.program.splice(targetIndex, 0, item)
+}
+
 const resetForm = () => {
   form.title = ''
   form.category = 'Концерты'
@@ -327,19 +611,58 @@ const resetForm = () => {
   form.time = ''
   form.location = ''
   form.address = ''
+  form.locationUrl = ''
   form.description = ''
+  form.visitType = 'free'
   form.price = ''
   form.limit = ''
   form.image = ''
+  form.program = [createEmptyProgramItem()]
+
+  errors.locationUrl = ''
   isSubmitted.value = false
 }
 
 const submitEvent = () => {
+  if (!validateLocationUrl()) {
+    return
+  }
+
+  if (form.visitType === 'paid' && Number(form.price) < 1) {
+    return
+  }
+
+  const program = form.program
+    .filter((item) => {
+      return item.time || item.title || item.description
+    })
+    .map(({ time, title, description }) => {
+      return {
+        time,
+        title,
+        description,
+      }
+    })
+
+  const payload = {
+    title: form.title.trim(),
+    category: form.category,
+    date: form.date,
+    time: form.time,
+    location: form.location.trim(),
+    address: form.address.trim(),
+    locationUrl: form.locationUrl.trim(),
+    description: form.description.trim(),
+    visitType: form.visitType,
+    price: form.visitType === 'paid' ? Number(form.price) : 0,
+    limit: form.limit ? Number(form.limit) : null,
+    image: form.image,
+    program,
+  }
+
   isSubmitted.value = true
 
-  console.log('Created event:', {
-    ...form,
-  })
+  console.log('Created event:', payload)
 }
 </script>
 
@@ -503,6 +826,17 @@ const submitEvent = () => {
   font-weight: 850;
 }
 
+.qala-field-hint {
+  color: #8a8a8a;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.qala-field-hint.error {
+  color: #ef4444;
+}
+
 .qala-input,
 .qala-textarea {
   width: 100%;
@@ -541,7 +875,8 @@ const submitEvent = () => {
   color: #9a9a9a;
 }
 
-.qala-category-grid {
+.qala-category-grid,
+.qala-visit-type-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -562,6 +897,131 @@ const submitEvent = () => {
   border-color: #111;
   background: #111;
   color: #fff;
+}
+
+.qala-visit-type-btn {
+  height: 42px;
+  padding: 0 16px;
+  border: 1px solid #eeeeee;
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.qala-visit-type-btn:hover {
+  background: #f7f7f7;
+}
+
+.qala-visit-type-btn.active {
+  border-color: #111;
+  background: #111;
+  color: #fff;
+}
+
+.qala-program-list {
+  display: grid;
+  gap: 12px;
+}
+
+.qala-program-item {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #eeeeee;
+  border-radius: 20px;
+  background: #fafafa;
+}
+
+.qala-program-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.qala-program-item-top strong {
+  color: #111;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.qala-program-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.qala-program-action-btn,
+.qala-program-remove {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #eeeeee;
+  border-radius: 999px;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    opacity 0.16s ease;
+}
+
+.qala-program-action-btn {
+  color: #111;
+}
+
+.qala-program-action-btn:hover:not(:disabled) {
+  background: #f2f2f2;
+  border-color: #dcdcdc;
+}
+
+.qala-program-action-btn:disabled {
+  color: #c5c5c5;
+  background: #f8f8f8;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.qala-program-remove {
+  color: #ef4444;
+}
+
+.qala-program-remove:hover {
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+.qala-program-textarea {
+  min-height: 86px;
+}
+
+.qala-program-add {
+  width: 100%;
+  height: 42px;
+  margin-top: 4px;
+  border: 1px dashed #d9d9d9;
+  border-radius: 16px;
+  background: #fff;
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.qala-program-add:hover {
+  background: #f7f7f7;
+  border-color: #cfcfcf;
 }
 
 .qala-preview-section {
@@ -693,6 +1153,83 @@ const submitEvent = () => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+.qala-preview-map-link {
+  width: fit-content;
+  margin-top: 12px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #eeeeee;
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.qala-preview-map-link:hover {
+  background: #f7f7f7;
+  color: #111;
+}
+
+.qala-preview-program {
+  margin: 0 14px 14px;
+  padding-top: 14px;
+  border-top: 1px solid #eeeeee;
+}
+
+.qala-preview-program h4 {
+  margin: 0 0 12px;
+  color: #111;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+}
+
+.qala-preview-program-item {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.qala-preview-program-item + .qala-preview-program-item {
+  margin-top: 12px;
+}
+
+.qala-preview-program-time {
+  height: 34px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #111;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.qala-preview-program-content {
+  min-width: 0;
+}
+
+.qala-preview-program-content strong {
+  display: block;
+  color: #111;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.qala-preview-program-content p {
+  margin: 4px 0 0;
+  color: #666;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .qala-create-footer {
@@ -856,6 +1393,15 @@ const submitEvent = () => {
     grid-template-columns: 1fr;
   }
 
+  .qala-visit-type-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .qala-visit-type-btn {
+    justify-content: center;
+  }
+
   .qala-preview-section {
     position: static;
   }
@@ -888,6 +1434,26 @@ const submitEvent = () => {
   }
 }
 
+@media (max-width: 520px) {
+  .qala-program-item-top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .qala-program-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .qala-program-action-btn,
+  .qala-program-remove {
+    width: 100%;
+    height: 38px;
+    border-radius: 14px;
+  }
+}
+
 @media (max-width: 420px) {
   .qala-create-shell {
     width: 100%;
@@ -908,6 +1474,20 @@ const submitEvent = () => {
 
   .qala-category-btn {
     flex: 0 0 auto;
+  }
+
+  .qala-preview-body {
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .qala-preview-date {
+    width: 48px;
+    height: 52px;
+  }
+
+  .qala-preview-program-item {
+    grid-template-columns: 54px minmax(0, 1fr);
   }
 }
 </style>

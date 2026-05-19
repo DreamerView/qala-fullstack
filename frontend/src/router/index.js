@@ -83,6 +83,7 @@ const routes = [
     component: PlusView,
     meta: {
       title: 'Создать',
+      layout: 'auth',
       requiresAuth: true,
     },
   },
