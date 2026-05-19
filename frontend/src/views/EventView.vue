@@ -12,11 +12,12 @@
         </button>
 
         <button
+          v-if="event"
           type="button"
           class="qala-icon-btn"
           :class="{ active: isSaved }"
-          @click="isSaved = !isSaved"
           aria-label="Сохранить событие"
+          @click="isSaved = !isSaved"
         >
           <i
             class="bi"
@@ -25,13 +26,25 @@
         </button>
       </div>
 
-      <section v-if="event" class="qala-event-detail">
+      <section v-if="isLoading" class="qala-loading">
+        <div class="qala-loading-card">
+          <div class="spinner-border spinner-border-sm" aria-hidden="true"></div>
+          <span>Загружаем событие...</span>
+        </div>
+      </section>
+
+      <section v-else-if="event" class="qala-event-detail">
         <div class="qala-event-hero">
           <img
+            v-if="event.image"
             :src="event.image"
             :alt="event.title"
             class="qala-event-hero-img"
           />
+
+          <div v-else class="qala-event-hero-empty">
+            <i class="bi bi-image"></i>
+          </div>
 
           <div class="qala-event-hero-overlay">
             <span class="qala-event-category">
@@ -66,20 +79,21 @@
                 <span>Я пойду</span>
               </button>
 
-              <button type="button" class="qala-secondary-btn">
+              <button type="button" class="qala-secondary-btn" @click="shareEvent">
                 <i class="bi bi-send"></i>
                 <span>Поделиться</span>
               </button>
 
-              <button
-                type="button"
+              <a
+                v-if="event.locationUrl"
+                :href="event.locationUrl"
+                target="_blank"
+                rel="noopener noreferrer"
                 class="qala-secondary-btn"
-                data-bs-toggle="modal"
-                data-bs-target="#qalaMapModal"
               >
                 <i class="bi bi-map"></i>
                 <span>Карта</span>
-              </button>
+              </a>
             </div>
 
             <section class="qala-section">
@@ -90,13 +104,13 @@
               </p>
             </section>
 
-            <section class="qala-section">
+            <section v-if="event.program.length" class="qala-section">
               <h2>Программа</h2>
 
               <div class="qala-program-list">
                 <div
                   v-for="item in event.program"
-                  :key="item.time"
+                  :key="item.id"
                   class="qala-program-item"
                 >
                   <div class="qala-program-time">
@@ -105,7 +119,7 @@
 
                   <div class="qala-program-info">
                     <h3>{{ item.title }}</h3>
-                    <p>{{ item.text }}</p>
+                    <p v-if="item.description">{{ item.description }}</p>
                   </div>
                 </div>
               </div>
@@ -115,11 +129,9 @@
               <h2>Организатор</h2>
 
               <div class="qala-organizer-card">
-                <img
-                  :src="event.organizer.avatar"
-                  :alt="event.organizer.name"
-                  class="qala-organizer-avatar"
-                />
+                <div class="qala-organizer-avatar-placeholder">
+                  <i class="bi bi-person"></i>
+                </div>
 
                 <div class="qala-organizer-info">
                   <h3>{{ event.organizer.name }}</h3>
@@ -167,7 +179,7 @@
 
                   <div>
                     <strong>{{ event.people }}</strong>
-                    <p>Участников</p>
+                    <p>Лимит участников</p>
                   </div>
                 </div>
 
@@ -191,22 +203,23 @@
 
               <div class="qala-map-preview-body">
                 <h3>{{ event.place }}</h3>
-                <p>{{ event.location }}</p>
+                <p>{{ event.address || event.location }}</p>
 
-                <button
-                  type="button"
+                <a
+                  v-if="event.locationUrl"
+                  :href="event.locationUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   class="qala-map-preview-btn"
-                  data-bs-toggle="modal"
-                  data-bs-target="#qalaMapModal"
                 >
                   Показать на карте
-                </button>
+                </a>
               </div>
             </div>
           </aside>
         </div>
 
-        <section class="qala-related-section">
+        <section v-if="relatedEvents.length" class="qala-related-section">
           <div class="qala-related-head">
             <h2>Похожие события</h2>
 
@@ -254,13 +267,50 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const router = useRouter()
 const route = useRoute()
 
+const API_URL = import.meta.env.VITE_API_URL || '/api'
+
 const isSaved = ref(false)
+const isLoading = ref(false)
+const event = ref(null)
+const relatedEvents = ref([])
+
+const monthsShort = [
+  'ЯНВ',
+  'ФЕВ',
+  'МАР',
+  'АПР',
+  'МАЙ',
+  'ИЮН',
+  'ИЮЛ',
+  'АВГ',
+  'СЕН',
+  'ОКТ',
+  'НОЯ',
+  'ДЕК',
+]
+
+const monthsFull = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря',
+]
+
+const eventId = computed(() => route.params.id)
 
 const goBack = () => {
   if (window.history.length > 1) {
@@ -271,152 +321,201 @@ const goBack = () => {
   router.push('/events')
 }
 
-const events = [
-  {
-    id: 1,
-    title: 'Музыкальный вечер Qala Live',
-    category: 'Концерты',
-    location: 'Караганда, Центральный парк',
-    place: 'Центральный парк',
-    day: '25',
-    month: 'МАЙ',
-    fullDate: '25 мая 2026',
-    time: '19:00',
-    people: '1.2K',
-    price: 'от 3 000 ₸',
-    date: '25 мая',
-    image:
-      'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?q=80&w=1400&auto=format&fit=crop',
-    description:
-      'Большой музыкальный вечер под открытым небом с живым звуком, атмосферной сценой, фуд-кортом и уютной зоной отдыха. Отличный вариант провести вечер с друзьями и открыть для себя новых исполнителей города.',
-    organizer: {
-      name: 'Qala Events',
-      description: 'Городская команда, которая собирает лучшие события Караганды.',
-      avatar:
-        'https://images.unsplash.com/photo-1527980965255-d3b416303d12?q=80&w=400&auto=format&fit=crop',
-    },
-    program: [
-      {
-        time: '18:30',
-        title: 'Сбор гостей',
-        text: 'Открытие площадки, музыка и welcome-зона.',
-      },
-      {
-        time: '19:00',
-        title: 'Начало концерта',
-        text: 'Выступления локальных артистов и приглашённых гостей.',
-      },
-      {
-        time: '21:30',
-        title: 'After party',
-        text: 'DJ-сет, общение и вечерняя атмосфера парка.',
-      },
-    ],
-  },
-  {
-    id: 2,
-    title: 'Frontend Meetup Karaganda',
-    category: 'Образование',
-    location: 'IT Hub Karaganda',
-    place: 'IT Hub',
-    day: '28',
-    month: 'МАЙ',
-    fullDate: '28 мая 2026',
-    time: '18:30',
-    people: '430',
-    price: 'Бесплатно',
-    date: '28 мая',
-    image:
-      'https://images.unsplash.com/photo-1515187029135-18ee286d815b?q=80&w=1400&auto=format&fit=crop',
-    description:
-      'Встреча frontend-разработчиков, дизайнеров и продуктовых специалистов. Обсудим Vue, UX, производительность интерфейсов и реальные кейсы разработки городских сервисов.',
-    organizer: {
-      name: 'Karaganda IT Community',
-      description: 'Сообщество разработчиков, дизайнеров и IT-энтузиастов.',
-      avatar:
-        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=400&auto=format&fit=crop',
-    },
-    program: [
-      {
-        time: '18:30',
-        title: 'Нетворкинг',
-        text: 'Знакомство участников и короткое вступление.',
-      },
-      {
-        time: '19:00',
-        title: 'Доклады',
-        text: 'Практические выступления про frontend и продуктовую разработку.',
-      },
-      {
-        time: '20:30',
-        title: 'Q&A',
-        text: 'Вопросы спикерам и свободное общение.',
-      },
-    ],
-  },
-  {
-    id: 3,
-    title: 'Городской забег',
-    category: 'Спорт',
-    location: 'Набережная',
-    place: 'Набережная',
-    day: '01',
-    month: 'ИЮН',
-    fullDate: '1 июня 2026',
-    time: '08:00',
-    people: '860',
-    price: 'от 1 500 ₸',
-    date: '1 июня',
-    image:
-      'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?q=80&w=1400&auto=format&fit=crop',
-    description:
-      'Утренний городской забег для всех желающих. Можно участвовать одному, с друзьями или семьёй. Будут разные дистанции, зона разминки и медали для участников.',
-    organizer: {
-      name: 'Qala Sport',
-      description: 'Команда городских спортивных мероприятий.',
-      avatar:
-        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=400&auto=format&fit=crop',
-    },
-    program: [
-      {
-        time: '07:30',
-        title: 'Регистрация',
-        text: 'Выдача номеров и подготовка участников.',
-      },
-      {
-        time: '08:00',
-        title: 'Разминка',
-        text: 'Общая разминка перед стартом.',
-      },
-      {
-        time: '08:30',
-        title: 'Старт',
-        text: 'Начало забега по выбранным дистанциям.',
-      },
-    ],
-  },
-]
-
-const event = computed(() => {
-  const id = Number(route.params.id)
-
-  return events.find((item) => item.id === id) || null
-})
-
-const relatedEvents = computed(() => {
-  if (!event.value) {
-    return []
+const normalizeDate = (value) => {
+  if (!value) {
+    return ''
   }
 
-  return events
-    .filter((item) => item.id !== event.value.id)
-    .slice(0, 3)
+  return String(value).slice(0, 10)
+}
+
+const normalizeTime = (value) => {
+  if (!value) {
+    return ''
+  }
+
+  return String(value).slice(0, 5)
+}
+
+const formatDateParts = (dateValue) => {
+  const normalized = normalizeDate(dateValue)
+
+  if (!normalized) {
+    return {
+      day: '00',
+      month: '---',
+      fullDate: 'Дата не указана',
+      shortDate: 'Дата не указана',
+    }
+  }
+
+  const date = new Date(`${normalized}T00:00:00`)
+  const day = String(date.getDate()).padStart(2, '0')
+  const monthIndex = date.getMonth()
+  const year = date.getFullYear()
+
+  return {
+    day,
+    month: monthsShort[monthIndex] || '---',
+    fullDate: `${date.getDate()} ${monthsFull[monthIndex] || ''} ${year}`,
+    shortDate: `${date.getDate()} ${monthsFull[monthIndex] || ''}`,
+  }
+}
+
+const formatPrice = (eventData) => {
+  const visitType = eventData.visit_type || eventData.visitType
+
+  if (visitType === 'free') {
+    return 'Бесплатно'
+  }
+
+  const price = Number(eventData.price || 0)
+
+  if (!price) {
+    return 'Цена не указана'
+  }
+
+  return `${price.toLocaleString('ru-RU')} ₸`
+}
+
+const formatPeople = (eventData) => {
+  const limit = eventData.participants_limit || eventData.limit
+
+  if (!limit) {
+    return 'Без лимита'
+  }
+
+  return Number(limit).toLocaleString('ru-RU')
+}
+
+const mapProgramItem = (item) => {
+  return {
+    id: item.id || `${item.program_time || item.time}-${item.title}`,
+    time: normalizeTime(item.program_time || item.time),
+    title: item.title || 'Пункт программы',
+    description: item.description || item.text || '',
+  }
+}
+
+const mapEventFromApi = (payload) => {
+  const eventData = payload?.event || payload
+  const programData = payload?.program || eventData?.program || []
+
+  if (!eventData) {
+    return null
+  }
+
+  const dateParts = formatDateParts(eventData.event_date || eventData.date)
+
+  return {
+    id: eventData.id,
+    title: eventData.title || 'Без названия',
+    category: eventData.category_name || eventData.category || 'Категория',
+    subcategory: eventData.subcategory_name || eventData.subcategory || '',
+    location: eventData.location_title || eventData.location || 'Место не указано',
+    address: eventData.address || '',
+    place: eventData.location_title || eventData.location || 'Место проведения',
+    locationUrl: eventData.location_url || eventData.locationUrl || '',
+    lat: eventData.lat !== null && eventData.lat !== undefined ? Number(eventData.lat) : null,
+    lng: eventData.lng !== null && eventData.lng !== undefined ? Number(eventData.lng) : null,
+    day: dateParts.day,
+    month: dateParts.month,
+    fullDate: dateParts.fullDate,
+    date: dateParts.shortDate,
+    time: normalizeTime(eventData.event_time || eventData.time) || '00:00',
+    people: formatPeople(eventData),
+    price: formatPrice(eventData),
+    image: eventData.image_url || eventData.image || '',
+    description: eventData.description || 'Описание события пока не добавлено.',
+    organizer: {
+      name: eventData.organizer_name || 'Qala Events',
+      description: eventData.organizer_description || 'Организатор события в Qala.',
+    },
+    program: Array.isArray(programData)
+      ? programData.map(mapProgramItem)
+      : [],
+  }
+}
+
+const requestJson = async (url, options = {}) => {
+  const response = await fetch(url, {
+    credentials: 'include',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  })
+
+  const data = await response.json().catch(() => null)
+
+  if (!response.ok || data?.status === false) {
+    const error = new Error(data?.message || 'Ошибка запроса')
+    error.response = data
+    error.status = response.status
+    throw error
+  }
+
+  return data
+}
+
+const loadEvent = async () => {
+  if (!eventId.value) {
+    event.value = null
+    relatedEvents.value = []
+    return
+  }
+
+  try {
+    isLoading.value = true
+    event.value = null
+    relatedEvents.value = []
+
+    const data = await requestJson(`${API_URL}/event/${eventId.value}`, {
+      method: 'GET',
+    })
+
+    const mappedEvent = mapEventFromApi(data?.data)
+
+    event.value = mappedEvent
+  } catch (err) {
+    console.error('Load event detail error:', err)
+
+    event.value = null
+    relatedEvents.value = []
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const shareEvent = async () => {
+  if (!event.value) {
+    return
+  }
+
+  const shareData = {
+    title: event.value.title,
+    text: event.value.description,
+    url: window.location.href,
+  }
+
+  if (navigator.share) {
+    await navigator.share(shareData).catch(() => {})
+    return
+  }
+
+  await navigator.clipboard?.writeText(window.location.href).catch(() => {})
+}
+
+onMounted(() => {
+  loadEvent()
 })
 
 watch(
   () => route.params.id,
   () => {
     isSaved.value = false
+    loadEvent()
   }
 )
 </script>
@@ -489,6 +588,26 @@ watch(
   border-color: #111;
 }
 
+.qala-loading {
+  min-height: 60vh;
+  display: grid;
+  place-items: center;
+}
+
+.qala-loading-card {
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 16px 40px #0000002e;
+}
+
 .qala-event-hero {
   position: relative;
   width: 100%;
@@ -504,6 +623,15 @@ watch(
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.qala-event-hero-empty {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #b0b0b0;
+  font-size: 42px;
 }
 
 .qala-event-hero-overlay {
@@ -701,11 +829,15 @@ watch(
   border-radius: 20px;
 }
 
-.qala-organizer-avatar {
+.qala-organizer-avatar-placeholder {
   width: 54px;
   height: 54px;
   border-radius: 999px;
-  object-fit: cover;
+  background: #f7f7f7;
+  color: #111;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
 }
 
 .qala-organizer-info {
@@ -838,6 +970,15 @@ watch(
   color: #fff;
   font-size: 14px;
   font-weight: 850;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.qala-map-preview-btn:hover {
+  background: #222;
+  color: #fff;
 }
 
 .qala-related-section {

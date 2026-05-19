@@ -79,12 +79,21 @@ const routes = [
   },
   {
     path: '/create',
-    name: 'create',
+    name: 'event-create',
     component: PlusView,
     meta: {
       title: 'Создать',
       layout: 'auth',
       requiresAuth: true,
+    },
+  },
+  {
+    path: '/update/:id',
+    name: 'event-update',
+    component: PlusView,
+    meta: {
+      layout: 'auth',
+      title: 'Редактировать событие',
     },
   },
   {

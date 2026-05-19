@@ -2,8 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 
-import authRoutes from './routes/auth.routes.js'
-import userRoutes from './routes/user.routes.js'
+import routes from './routes/index.js'
 import { error } from './utils/response.js'
 
 const app = express()
@@ -23,8 +22,7 @@ app.use(express.json({
 
 app.use(cookieParser())
 
-app.use('/api/auth', authRoutes)
-app.use('/api/user', userRoutes)
+app.use('/api', routes)
 
 app.use((req, res) => {
   return error(res, 'Route not found', 404)
