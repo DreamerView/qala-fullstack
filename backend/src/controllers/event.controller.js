@@ -1,6 +1,14 @@
+// backend/src/controllers/event.controller.js
+
 import db from '../db/knex.js'
 
+const EVENT_TYPES = ['event', 'meeting', 'announcement', 'activity', 'plan']
 const VISIT_TYPES = ['free', 'paid']
+const TYPES_WITH_REQUIRED_DATE_TIME = ['event', 'meeting', 'activity']
+const TYPES_WITH_REQUIRED_LOCATION = ['event', 'meeting', 'activity']
+const TYPES_WITH_VISIT = ['event', 'meeting', 'activity']
+const TYPES_WITH_PROGRAM = ['event']
+const TYPES_WITH_IMAGE = ['event', 'meeting', 'announcement', 'activity']
 
 const isValidDate = (value) => {
   if (typeof value !== 'string') return false
@@ -40,8 +48,60 @@ const toNumber = (value) => {
   return Number.isFinite(number) ? number : null
 }
 
+const toPositiveInt = (value) => {
+  const number = Number(value)
+  return Number.isInteger(number) && number > 0 ? number : null
+}
+
+const normalizeEventType = (value) => {
+  const type = toCleanString(value)
+  return EVENT_TYPES.includes(type) ? type : 'event'
+}
+
+const getEventRules = (eventType) => {
+  return {
+    requiresDateTime: TYPES_WITH_REQUIRED_DATE_TIME.includes(eventType),
+    requiresLocation: TYPES_WITH_REQUIRED_LOCATION.includes(eventType),
+    allowsVisit: TYPES_WITH_VISIT.includes(eventType),
+    allowsProgram: TYPES_WITH_PROGRAM.includes(eventType),
+    allowsImage: TYPES_WITH_IMAGE.includes(eventType),
+  }
+}
+
+const getEventParticipationMeta = async (eventId, userId, trx = db) => {
+  const participantsRow = await trx('event_participants')
+    .where('event_id', eventId)
+    .count({ total: 'id' })
+    .first()
+
+  const participantsCount = Number(participantsRow?.total || 0)
+
+  if (!userId) {
+    return {
+      participants_count: participantsCount,
+      is_participant: false,
+    }
+  }
+
+  const participant = await trx('event_participants')
+    .select('id')
+    .where({
+      event_id: eventId,
+      user_id: userId,
+    })
+    .first()
+
+  return {
+    participants_count: participantsCount,
+    is_participant: Boolean(participant),
+  }
+}
+
 const validateCreateEventPayload = (body) => {
   const errors = {}
+
+  const eventType = normalizeEventType(body.eventType || body.event_type)
+  const rules = getEventRules(eventType)
 
   const title = toCleanString(body.title)
   const description = toCleanString(body.description)
@@ -51,7 +111,7 @@ const validateCreateEventPayload = (body) => {
   const categorySlug = toCleanString(body.categorySlug)
 
   const subcategory = toCleanString(body.subcategory)
-  const subcategoryId = body.subcategoryId === null || body.subcategoryId === undefined
+  const subcategoryId = body.subcategoryId === null || body.subcategoryId === undefined || body.subcategoryId === ''
     ? null
     : Number(body.subcategoryId)
   const subcategorySlug = toCleanString(body.subcategorySlug)
@@ -66,7 +126,11 @@ const validateCreateEventPayload = (body) => {
   const lat = toNumber(body.lat)
   const lng = toNumber(body.lng)
 
-  const visitType = toCleanString(body.visitType)
+  const rawVisitType = toCleanString(body.visitType)
+  const visitType = rules.allowsVisit && VISIT_TYPES.includes(rawVisitType)
+    ? rawVisitType
+    : 'free'
+
   const price = body.price === null || body.price === undefined || body.price === ''
     ? null
     : Number(body.price)
@@ -75,15 +139,15 @@ const validateCreateEventPayload = (body) => {
     ? null
     : Number(body.limit)
 
-  const image = toNullableString(body.image)
+  const image = rules.allowsImage ? toNullableString(body.image) : null
 
-  const hasProgram = Boolean(body.hasProgram)
+  const hasProgram = rules.allowsProgram ? Boolean(body.hasProgram) : false
   const program = Array.isArray(body.program) ? body.program : []
 
-  if (!title) errors.title = 'Название события обязательно'
-  if (title.length > 180) errors.title = 'Название события не должно превышать 180 символов'
+  if (!title) errors.title = 'Название обязательно'
+  if (title.length > 180) errors.title = 'Название не должно превышать 180 символов'
 
-  if (!description) errors.description = 'Описание события обязательно'
+  if (!description) errors.description = 'Описание обязательно'
 
   if (!category) errors.category = 'Категория обязательна'
   if (!Number.isInteger(categoryId) || categoryId <= 0) {
@@ -107,46 +171,63 @@ const validateCreateEventPayload = (body) => {
     errors.subcategorySlug = 'Slug подкатегории не должен превышать 120 символов'
   }
 
-  if (!isValidDate(date)) errors.date = 'Дата должна быть в формате YYYY-MM-DD'
-  if (!isValidTime(time)) errors.time = 'Время должно быть в формате HH:mm'
-
-  if (!location) errors.location = 'Место проведения обязательно'
-  if (location.length > 180) {
-    errors.location = 'Место проведения не должно превышать 180 символов'
+  if (rules.requiresDateTime) {
+    if (!isValidDate(date)) errors.date = 'Дата должна быть в формате YYYY-MM-DD'
+    if (!isValidTime(time)) errors.time = 'Время должно быть в формате HH:mm'
+  } else {
+    if (date && !isValidDate(date)) errors.date = 'Дата должна быть в формате YYYY-MM-DD'
+    if (time && !isValidTime(time)) errors.time = 'Время должно быть в формате HH:mm'
   }
 
-  if (!address) errors.address = 'Адрес обязателен'
-  if (address.length > 255) {
-    errors.address = 'Адрес не должен превышать 255 символов'
-  }
+  if (rules.requiresLocation) {
+    if (!location) errors.location = 'Место проведения обязательно'
+    if (!address) errors.address = 'Адрес обязателен'
+    if (!locationUrl) errors.locationUrl = 'Ссылка на локацию обязательна'
 
-  if (!locationUrl) {
-    errors.locationUrl = 'Ссылка на локацию обязательна'
-  } else if (!isValidUrl(locationUrl)) {
-    errors.locationUrl = 'Ссылка на локацию должна быть корректным URL'
-  } else if (locationUrl.length > 600) {
-    errors.locationUrl = 'Ссылка на локацию не должна превышать 600 символов'
-  }
+    if (lat === null || lat < -90 || lat > 90) {
+      errors.lat = 'Широта должна быть от -90 до 90'
+    }
 
-  if (lat === null || lat < -90 || lat > 90) {
-    errors.lat = 'Широта должна быть от -90 до 90'
-  }
-
-  if (lng === null || lng < -180 || lng > 180) {
-    errors.lng = 'Долгота должна быть от -180 до 180'
-  }
-
-  if (!VISIT_TYPES.includes(visitType)) {
-    errors.visitType = 'Тип посещения должен быть free или paid'
-  }
-
-  if (visitType === 'paid') {
-    if (!Number.isFinite(price) || price < 1) {
-      errors.price = 'Для платного события цена должна быть не ниже 1'
+    if (lng === null || lng < -180 || lng > 180) {
+      errors.lng = 'Долгота должна быть от -180 до 180'
     }
   }
 
-  if (visitType === 'free' && price !== null && price < 0) {
+  if (location && location.length > 180) {
+    errors.location = 'Место проведения не должно превышать 180 символов'
+  }
+
+  if (address && address.length > 255) {
+    errors.address = 'Адрес не должен превышать 255 символов'
+  }
+
+  if (locationUrl) {
+    if (!isValidUrl(locationUrl)) {
+      errors.locationUrl = 'Ссылка на локацию должна быть корректным URL'
+    } else if (locationUrl.length > 600) {
+      errors.locationUrl = 'Ссылка на локацию не должна превышать 600 символов'
+    }
+  }
+
+  if (lat !== null && (lat < -90 || lat > 90)) {
+    errors.lat = 'Широта должна быть от -90 до 90'
+  }
+
+  if (lng !== null && (lng < -180 || lng > 180)) {
+    errors.lng = 'Долгота должна быть от -180 до 180'
+  }
+
+  if (rules.allowsVisit && !VISIT_TYPES.includes(visitType)) {
+    errors.visitType = 'Тип посещения должен быть free или paid'
+  }
+
+  if (rules.allowsVisit && visitType === 'paid') {
+    if (!Number.isFinite(price) || price < 1) {
+      errors.price = 'Для платной публикации цена должна быть не ниже 1'
+    }
+  }
+
+  if (rules.allowsVisit && visitType === 'free' && price !== null && price < 0) {
     errors.price = 'Цена не может быть отрицательной'
   }
 
@@ -172,7 +253,7 @@ const validateCreateEventPayload = (body) => {
       const itemTitle = toCleanString(item?.title)
       const itemDescription = toCleanString(item?.description)
 
-      if (!isValidTime(itemTime)) {
+      if (itemTime && !isValidTime(itemTime)) {
         errors[`program.${index}.time`] = 'Время пункта программы должно быть в формате HH:mm'
       }
 
@@ -194,6 +275,8 @@ const validateCreateEventPayload = (body) => {
     isValid: Object.keys(errors).length === 0,
     errors,
     data: {
+      eventType,
+
       title,
       description,
 
@@ -205,23 +288,23 @@ const validateCreateEventPayload = (body) => {
       subcategorySlug: subcategorySlug || null,
       subcategory: subcategory || null,
 
-      date,
-      time,
+      date: date || null,
+      time: time || null,
 
-      location,
-      address,
-      locationUrl,
+      location: location || null,
+      address: address || null,
+      locationUrl: locationUrl || null,
       lat,
       lng,
 
-      visitType,
-      price: visitType === 'paid' ? price : null,
+      visitType: rules.allowsVisit ? visitType : 'free',
+      price: rules.allowsVisit && visitType === 'paid' ? price : null,
 
       limit,
       image,
 
       hasProgram,
-      program,
+      program: hasProgram ? program : [],
     },
   }
 }
@@ -241,6 +324,8 @@ export const createEvent = async (req, res) => {
     const result = await db.transaction(async (trx) => {
       const eventPayload = {
         user_id: req.user?.id || null,
+
+        event_type: data.eventType,
 
         title: data.title,
         description: data.description,
@@ -283,7 +368,7 @@ export const createEvent = async (req, res) => {
       if (data.hasProgram && data.program.length) {
         const programPayload = data.program.map((item, index) => ({
           event_id: eventId,
-          program_time: toCleanString(item.time),
+          program_time: toNullableString(item.time),
           title: toCleanString(item.title),
           description: toNullableString(item.description),
           sort_order: index + 1,
@@ -308,7 +393,7 @@ export const createEvent = async (req, res) => {
 
     return res.status(201).json({
       status: true,
-      message: 'Событие успешно создано',
+      message: 'Публикация успешно создана',
       data: {
         event: result.event,
         program: result.program,
@@ -319,15 +404,16 @@ export const createEvent = async (req, res) => {
 
     return res.status(500).json({
       status: false,
-      message: 'Не удалось создать событие',
+      message: 'Не удалось создать публикацию',
     })
   }
 }
 
 export const getEventById = async (req, res) => {
-  const eventId = Number(req.params.id)
+  const eventId = toPositiveInt(req.params.id)
+  const userId = req.user?.id || null
 
-  if (!Number.isInteger(eventId) || eventId <= 0) {
+  if (!eventId) {
     return res.status(400).json({
       status: false,
       message: 'Некорректный ID события',
@@ -347,6 +433,8 @@ export const getEventById = async (req, res) => {
       })
     }
 
+    const participationMeta = await getEventParticipationMeta(eventId, userId)
+
     const program = await db('event_program_items')
       .where('event_id', eventId)
       .orderBy('sort_order', 'asc')
@@ -363,7 +451,11 @@ export const getEventById = async (req, res) => {
       status: true,
       message: 'Событие получено',
       data: {
-        event,
+        event: {
+          ...event,
+          participants_count: participationMeta.participants_count,
+          is_participant: participationMeta.is_participant,
+        },
         program,
       },
     })
@@ -409,6 +501,8 @@ export const updateEvent = async (req, res) => {
       }
 
       const eventPayload = {
+        event_type: data.eventType,
+
         title: data.title,
         description: data.description,
 
@@ -452,7 +546,7 @@ export const updateEvent = async (req, res) => {
       if (data.hasProgram && data.program.length) {
         const programPayload = data.program.map((item, index) => ({
           event_id: eventId,
-          program_time: toCleanString(item.time),
+          program_time: toNullableString(item.time),
           title: toCleanString(item.title),
           description: toNullableString(item.description),
           sort_order: index + 1,
@@ -484,7 +578,7 @@ export const updateEvent = async (req, res) => {
 
     return res.json({
       status: true,
-      message: 'Событие успешно обновлено',
+      message: 'Публикация успешно обновлена',
       data: {
         event: result.event,
         program: result.program,
@@ -495,7 +589,7 @@ export const updateEvent = async (req, res) => {
 
     return res.status(500).json({
       status: false,
-      message: 'Не удалось обновить событие',
+      message: 'Не удалось обновить публикацию',
     })
   }
 }

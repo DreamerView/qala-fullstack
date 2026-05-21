@@ -83,7 +83,7 @@ const routes = [
     component: PlusView,
     meta: {
       title: 'Создать',
-      layout: 'auth',
+      layout: 'fullscreen',
       requiresAuth: true,
     },
   },
@@ -92,8 +92,9 @@ const routes = [
     name: 'event-update',
     component: PlusView,
     meta: {
-      layout: 'auth',
       title: 'Редактировать событие',
+      layout: 'fullscreen',
+      requiresAuth: true,
     },
   },
   {
@@ -136,7 +137,11 @@ router.beforeEach(async (to) => {
 
   document.title = to.meta.title ? `${to.meta.title} · Qala` : 'Qala'
 
-  await auth.initializeAuth()
+  const needsAuthCheck = Boolean(to.meta.requiresAuth || to.meta.guestOnly)
+
+  if (needsAuthCheck && !auth.isInitialized.value) {
+    await auth.initializeAuth()
+  }
 
   const isLoggedIn = auth.isAuthenticated.value
 
@@ -150,9 +155,11 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.guestOnly && isLoggedIn) {
-    return typeof to.query.redirect === 'string'
+    const redirectPath = typeof to.query.redirect === 'string'
       ? to.query.redirect
       : '/'
+
+    return redirectPath
   }
 
   return true

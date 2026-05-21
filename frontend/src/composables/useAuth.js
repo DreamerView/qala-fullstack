@@ -1,3 +1,5 @@
+// src/composables/useAuth.js
+
 import { computed, readonly, ref } from 'vue'
 
 const API_ERROR_MESSAGES = {
@@ -5,7 +7,7 @@ const API_ERROR_MESSAGES = {
   'User already exists': 'Пользователь уже существует.',
   'User is blocked': 'Пользователь заблокирован.',
   Unauthorized: 'Необходимо войти в аккаунт.',
-  'Token is required': 'Токен авторизации отсутствует.',
+  'Token is required': 'Сессия отсутствует. Войдите снова.',
   'Token expired': 'Сессия истекла. Войдите снова.',
   'Invalid token': 'Недействительная сессия. Войдите снова.',
   'User not found': 'Пользователь не найден.',
@@ -25,7 +27,6 @@ const API_ERROR_MESSAGES = {
 }
 
 const user = ref(null)
-const accessToken = ref('')
 const isLoading = ref(false)
 const error = ref('')
 const isInitialized = ref(false)
@@ -36,18 +37,12 @@ function translateApiError(message, fallback = 'Произошла ошибка.
   return API_ERROR_MESSAGES[message] || message || fallback
 }
 
-function getAccessToken(data) {
-  return data?.accessToken || data?.token || ''
-}
-
 function setSession(data) {
   user.value = data?.user || null
-  accessToken.value = getAccessToken(data)
 }
 
 function clearSession() {
   user.value = null
-  accessToken.value = ''
 }
 
 function isAuthError(message) {
@@ -56,6 +51,9 @@ function isAuthError(message) {
     'Token is required',
     'Token expired',
     'Invalid token',
+    'Refresh token is missing',
+    'Invalid refresh token',
+    'Refresh token expired',
   ].includes(message)
 }
 
@@ -64,10 +62,6 @@ async function request(url, options = {}) {
     Accept: 'application/json',
     ...(options.body ? { 'Content-Type': 'application/json' } : {}),
     ...(options.headers || {}),
-  }
-
-  if (accessToken.value) {
-    headers.Authorization = `Bearer ${accessToken.value}`
   }
 
   const response = await fetch(url, {
@@ -88,7 +82,7 @@ async function request(url, options = {}) {
   return data
 }
 
-async function refreshAccessToken() {
+async function refreshSession() {
   if (refreshPromise) {
     return refreshPromise
   }
@@ -119,7 +113,7 @@ async function requestWithRefresh(url, options = {}) {
       throw err
     }
 
-    const refreshed = await refreshAccessToken()
+    const refreshed = await refreshSession()
 
     if (!refreshed) {
       throw err
@@ -131,11 +125,7 @@ async function requestWithRefresh(url, options = {}) {
 
 export function useAuth() {
   const isAuthenticated = computed(() => {
-    return Boolean(accessToken.value && user.value)
-  })
-
-  const hasToken = computed(() => {
-    return Boolean(accessToken.value)
+    return Boolean(user.value)
   })
 
   function clearError() {
@@ -211,21 +201,11 @@ export function useAuth() {
     clearError()
 
     try {
-      if (!accessToken.value) {
-        const refreshed = await refreshAccessToken()
-
-        if (!refreshed) {
-          clearSession()
-          isInitialized.value = true
-          return false
-        }
-      }
-
       const response = await requestWithRefresh('/api/user/me', {
         method: 'GET',
       })
 
-      user.value = response.data.user
+      setSession(response.data)
       isInitialized.value = true
 
       return true
@@ -278,7 +258,7 @@ export function useAuth() {
         method: 'POST',
       })
     } catch {
-      // Локально всё равно выходим.
+      // Даже если backend временно недоступен, локальное состояние очищаем.
     } finally {
       clearSession()
       isInitialized.value = true
@@ -296,19 +276,17 @@ export function useAuth() {
 
   return {
     user: readonly(user),
-    accessToken: readonly(accessToken),
     isLoading: readonly(isLoading),
     error: readonly(error),
     isInitialized: readonly(isInitialized),
 
-    hasToken,
     isAuthenticated,
 
     signIn,
     signUp,
     fetchCurrentUser,
     checkAuthField,
-    refreshAccessToken,
+    refreshSession,
     initializeAuth,
     logout,
     clearError,

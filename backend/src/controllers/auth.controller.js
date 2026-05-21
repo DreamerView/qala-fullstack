@@ -1,3 +1,5 @@
+// src/controllers/auth.controller.js
+
 import crypto from 'node:crypto'
 
 import bcrypt from 'bcryptjs'
@@ -6,6 +8,7 @@ import jwt from 'jsonwebtoken'
 import db from '../db/knex.js'
 import { success, error } from '../utils/response.js'
 
+const ACCESS_COOKIE_NAME = 'qala_access_token'
 const REFRESH_COOKIE_NAME = 'qala_refresh_token'
 
 const ACCESS_TOKEN_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m'
@@ -61,16 +64,38 @@ function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || null
 }
 
-function getRefreshCookieOptions() {
+function getCookieBaseOptions() {
   const isProduction = process.env.NODE_ENV === 'production'
 
   return {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'lax' : 'lax',
+    sameSite: 'lax',
+  }
+}
+
+function getAccessCookieOptions() {
+  return {
+    ...getCookieBaseOptions(),
+    maxAge: 15 * 60 * 1000,
+    path: '/api',
+  }
+}
+
+function getRefreshCookieOptions() {
+  return {
+    ...getCookieBaseOptions(),
     maxAge: REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000,
     path: '/api/auth',
   }
+}
+
+function setAccessCookie(res, accessToken) {
+  res.cookie(
+    ACCESS_COOKIE_NAME,
+    accessToken,
+    getAccessCookieOptions()
+  )
 }
 
 function setRefreshCookie(res, refreshToken) {
@@ -81,11 +106,28 @@ function setRefreshCookie(res, refreshToken) {
   )
 }
 
+function clearAccessCookie(res) {
+  res.clearCookie(ACCESS_COOKIE_NAME, {
+    ...getAccessCookieOptions(),
+    maxAge: undefined,
+  })
+}
+
 function clearRefreshCookie(res) {
   res.clearCookie(REFRESH_COOKIE_NAME, {
     ...getRefreshCookieOptions(),
     maxAge: undefined,
   })
+}
+
+function setAuthCookies(res, accessToken, refreshToken) {
+  setAccessCookie(res, accessToken)
+  setRefreshCookie(res, refreshToken)
+}
+
+function clearAuthCookies(res) {
+  clearAccessCookie(res)
+  clearRefreshCookie(res)
 }
 
 function getRefreshTokenFromRequest(req) {
@@ -212,14 +254,13 @@ export async function register(req, res, next) {
       }
     })
 
-    setRefreshCookie(res, result.refreshToken)
+    setAuthCookies(res, result.accessToken, result.refreshToken)
 
     return success(
       res,
       'User registered successfully',
       {
         user: result.user,
-        accessToken: result.accessToken,
       },
       201
     )
@@ -278,11 +319,10 @@ export async function login(req, res, next) {
       }
     })
 
-    setRefreshCookie(res, result.refreshToken)
+    setAuthCookies(res, result.accessToken, result.refreshToken)
 
     return success(res, 'Logged in successfully', {
       user: result.user,
-      accessToken: result.accessToken,
     })
   } catch (err) {
     next(err)
@@ -294,7 +334,7 @@ export async function refresh(req, res, next) {
     const refreshToken = getRefreshTokenFromRequest(req)
 
     if (!refreshToken) {
-      clearRefreshCookie(res)
+      clearAuthCookies(res)
       return error(res, 'Refresh token is missing', 401)
     }
 
@@ -305,16 +345,12 @@ export async function refresh(req, res, next) {
       .first()
 
     if (!session) {
-      clearRefreshCookie(res)
+      clearAuthCookies(res)
       return error(res, 'Invalid refresh token', 401)
     }
 
-    // Важно:
-    // Не отзываем все сессии пользователя.
-    // Просто очищаем cookie на текущем устройстве.
     if (session.revoked_at) {
-      clearRefreshCookie(res)
-
+      clearAuthCookies(res)
       return error(res, 'Invalid refresh token', 401)
     }
 
@@ -323,7 +359,7 @@ export async function refresh(req, res, next) {
     if (isExpired) {
       await revokeSessionById(session.id)
 
-      clearRefreshCookie(res)
+      clearAuthCookies(res)
 
       return error(res, 'Refresh token expired', 401)
     }
@@ -331,14 +367,14 @@ export async function refresh(req, res, next) {
     const user = await findSafeUserById(session.user_id)
 
     if (!user) {
-      clearRefreshCookie(res)
+      clearAuthCookies(res)
       return error(res, 'User not found', 401)
     }
 
     if (!user.is_active) {
       await revokeSessionById(session.id)
 
-      clearRefreshCookie(res)
+      clearAuthCookies(res)
 
       return error(res, 'User is blocked', 403)
     }
@@ -347,19 +383,18 @@ export async function refresh(req, res, next) {
       await revokeSessionById(session.id, trx)
 
       const newRefreshToken = await createUserSession(req, user.id, trx)
-      const accessToken = createAccessToken(user)
+      const newAccessToken = createAccessToken(user)
 
       return {
-        accessToken,
+        accessToken: newAccessToken,
         refreshToken: newRefreshToken,
       }
     })
 
-    setRefreshCookie(res, result.refreshToken)
+    setAuthCookies(res, result.accessToken, result.refreshToken)
 
     return success(res, 'Token refreshed successfully', {
       user,
-      accessToken: result.accessToken,
     })
   } catch (err) {
     next(err)
@@ -382,7 +417,7 @@ export async function logout(req, res, next) {
         })
     }
 
-    clearRefreshCookie(res)
+    clearAuthCookies(res)
 
     return success(res, 'Logged out successfully')
   } catch (err) {
@@ -398,7 +433,7 @@ export async function logoutAll(req, res, next) {
 
     await revokeAllUserSessions(req.user.id)
 
-    clearRefreshCookie(res)
+    clearAuthCookies(res)
 
     return success(res, 'Logged out from all devices successfully')
   } catch (err) {

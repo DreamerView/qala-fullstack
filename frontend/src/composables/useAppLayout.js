@@ -1,26 +1,36 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
-const LAYOUTS = Object.freeze({
+export const LAYOUTS = Object.freeze({
   AUTH: 'auth',
   MAIN: 'main',
+  FULLSCREEN: 'fullscreen',
 })
+
+const DEFAULT_LAYOUT = LAYOUTS.MAIN
+const VALID_LAYOUTS = new Set(Object.values(LAYOUTS))
 
 export function useAppLayout() {
   const route = useRoute()
 
-  const layout = computed(() => {
-    return route.meta?.layout === LAYOUTS.AUTH
-      ? LAYOUTS.AUTH
-      : LAYOUTS.MAIN
+  const isReady = computed(() => {
+    return route.name !== undefined || route.matched.length > 0
   })
 
-  const isAuthLayout = computed(() => {
-    return layout.value === LAYOUTS.AUTH
+  const layout = computed(() => {
+    if (!isReady.value) return null
+
+    const value = route.meta?.layout
+
+    return VALID_LAYOUTS.has(value) ? value : DEFAULT_LAYOUT
   })
 
   return {
     layout,
-    isAuthLayout,
+    isLayoutReady: computed(() => layout.value !== null),
+
+    isAuthLayout: computed(() => layout.value === LAYOUTS.AUTH),
+    isMainLayout: computed(() => layout.value === LAYOUTS.MAIN),
+    isFullscreenLayout: computed(() => layout.value === LAYOUTS.FULLSCREEN),
   }
 }

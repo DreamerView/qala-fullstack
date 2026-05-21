@@ -9,7 +9,9 @@
     "start": "node server.js",
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
-    "migrate:make": "knex migrate:make"
+    "migrate:make": "knex migrate:make",
+    "geo:migrate": "node src/geo-db/run-geo-migrations.js",
+    "geo:build": "node src/geo-db/build-geo-db.js"
   },
   "keywords": [],
   "author": "Temirkhan Rustemov",
@@ -24,7 +26,8 @@
     "jsonwebtoken": "^9.0.3",
     "knex": "^3.2.10",
     "morgan": "^1.10.1",
-    "mysql2": "^3.22.3"
+    "mysql2": "^3.22.3",
+    "sqlite3": "^6.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

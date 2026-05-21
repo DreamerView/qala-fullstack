@@ -1,6 +1,7 @@
 <template>
   <Teleport to="body">
     <QalaMapModal />
+    <LocationPickerModal />
   </Teleport>
 
   <div class="ig-app">
@@ -15,6 +16,7 @@
 <script setup>
 import InstagramSidebar from '@/components/InstagramSidebar.vue'
 import QalaMapModal from '@/components/modal/QalaMapModal.vue'
+import LocationPickerModal from '../components/global/LocationPickerModal.vue';
 
 import { menu } from '@/data/instagramData'
 </script>

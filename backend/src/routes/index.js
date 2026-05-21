@@ -3,6 +3,7 @@ import { Router } from 'express'
 import authRoutes from './auth.routes.js'
 import userRoutes from './user.routes.js'
 import eventRoutes from './event.routes.js'
+import geoRoutes from './geo.routes.js'
 
 const router = Router()
 
@@ -17,5 +18,6 @@ router.get('/health', (req, res) => {
 router.use('/auth', authRoutes)
 router.use('/user', userRoutes)
 router.use('/event', eventRoutes)
+router.use('/geo', geoRoutes)
 
 export default router

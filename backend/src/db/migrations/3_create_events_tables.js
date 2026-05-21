@@ -5,44 +5,50 @@ export async function up(knex) {
     table.bigIncrements('id').primary()
 
     // Автор / организатор события
+    table.integer('user_id').unsigned().nullable()
+
+    // Тип публикации:
+    // event - мероприятие
+    // meeting - встреча
+    // announcement - анонс
+    // activity - активность
+    // plan - план / идея
     table
-      .integer('user_id')
-      .unsigned()
-      .nullable()
+      .enu('event_type', ['event', 'meeting', 'announcement', 'activity', 'plan'], {
+        useNative: false,
+      })
+      .notNullable()
+      .defaultTo('event')
 
     // Основная информация
     table.string('title', 180).notNullable()
     table.text('description').notNullable()
 
     // Категория
-    table
-      .integer('category_id')
-      .unsigned()
-      .notNullable()
-
+    table.integer('category_id').unsigned().notNullable()
     table.string('category_slug', 120).notNullable()
     table.string('category_name', 160).notNullable()
 
     // Подкатегория
-    table
-      .integer('subcategory_id')
-      .unsigned()
-      .nullable()
-
+    table.integer('subcategory_id').unsigned().nullable()
     table.string('subcategory_slug', 120).nullable()
     table.string('subcategory_name', 160).nullable()
 
     // Дата и время
-    table.date('event_date').notNullable()
-    table.time('event_time').notNullable()
+    // Для meeting/activity/event обычно обязательные на уровне backend-валидации.
+    // Для announcement/plan могут быть пустыми.
+    table.date('event_date').nullable()
+    table.time('event_time').nullable()
 
     // Место
-    table.string('location_title', 180).notNullable()
-    table.string('address', 255).notNullable()
-    table.string('location_url', 600).notNullable()
+    // Для meeting/activity/event обычно обязательное на уровне backend-валидации.
+    // Для announcement/plan может быть пустым.
+    table.string('location_title', 180).nullable()
+    table.string('address', 255).nullable()
+    table.string('location_url', 600).nullable()
 
-    table.decimal('lat', 10, 7).notNullable()
-    table.decimal('lng', 10, 7).notNullable()
+    table.decimal('lat', 10, 7).nullable()
+    table.decimal('lng', 10, 7).nullable()
 
     // Оплата
     table
@@ -89,27 +95,30 @@ export async function up(knex) {
 
     // Индексы
     table.index(['user_id'])
+    table.index(['event_type'])
     table.index(['category_id'])
     table.index(['subcategory_id'])
     table.index(['category_slug'])
     table.index(['subcategory_slug'])
     table.index(['event_date'])
     table.index(['event_date', 'event_time'])
+    table.index(['event_type', 'event_date'])
     table.index(['visit_type'])
     table.index(['status'])
     table.index(['is_active'])
     table.index(['lat', 'lng'])
+    table.index(['status', 'is_active'])
+    table.index(['event_type', 'status', 'is_active'])
   })
 
   await knex.schema.createTable('event_program_items', (table) => {
     table.bigIncrements('id').primary()
 
-    table
-      .bigInteger('event_id')
-      .unsigned()
-      .notNullable()
+    table.bigInteger('event_id').unsigned().notNullable()
 
-    table.time('program_time').notNullable()
+    // Лучше nullable: иногда пункт программы может быть без точного времени
+    table.time('program_time').nullable()
+
     table.string('title', 180).notNullable()
     table.text('description').nullable()
 
