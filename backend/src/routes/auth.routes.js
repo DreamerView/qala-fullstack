@@ -11,14 +11,25 @@ import {
 
 import { authMiddleware } from '../middlewares/auth.middleware.js'
 
+import {
+  authGlobalLimiter,
+  checkFieldLimiter,
+  loginLimiter,
+  refreshLimiter,
+  registerLimiter,
+} from '../middlewares/rateLimit.middleware.js'
+
 const router = express.Router()
 
-router.post('/register', register)
-router.post('/login', login)
-router.post('/refresh', refresh)
+router.use(authGlobalLimiter)
+
+router.post('/register', registerLimiter, register)
+router.post('/login', loginLimiter, login)
+router.post('/refresh', refreshLimiter, refresh)
+
 router.post('/logout', logout)
 router.post('/logout-all', authMiddleware, logoutAll)
 
-router.get('/check', checkAuthField)
+router.get('/check', checkFieldLimiter, checkAuthField)
 
 export default router

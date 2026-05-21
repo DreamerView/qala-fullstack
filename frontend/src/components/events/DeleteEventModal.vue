@@ -2,21 +2,31 @@
   <Teleport to="body">
     <div
       v-if="modelValue"
+      ref="modalRef"
       class="modal fade show d-block"
       tabindex="-1"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="delete-event-modal-title"
+      aria-describedby="delete-event-modal-description"
       @click.self="closeModal"
+      @keydown.esc="closeModal"
     >
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content rounded-4 border-0 shadow-lg">
           <div class="modal-header border-0 pb-0">
             <div>
-              <h5 class="modal-title fw-bold mb-1">
+              <h5
+                id="delete-event-modal-title"
+                class="modal-title fw-bold mb-1"
+              >
                 Удалить событие навсегда?
               </h5>
 
-              <p class="text-muted small mb-0">
+              <p
+                id="delete-event-modal-description"
+                class="text-muted small mb-0"
+              >
                 Это действие нельзя будет отменить.
               </p>
             </div>
@@ -39,7 +49,7 @@
 
                 <div class="min-w-0">
                   <strong class="d-block mb-1 text-truncate">
-                    {{ eventTitle || 'Это событие' }}
+                    {{ title }}
                   </strong>
 
                   <span class="small">
@@ -94,7 +104,10 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+
+const DELETE_ERROR = 'Не удалось удалить событие'
+const FALLBACK_TITLE = 'Это событие'
 
 const props = defineProps({
   modelValue: {
@@ -117,50 +130,75 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'deleted'])
 
+let activeRequest = null
+let previousOverflow = ''
+let hasBodyLock = false
+
+const modalRef = ref(null)
 const isDeleting = ref(false)
 const errorMessage = ref('')
 
+const title = computed(() => props.eventTitle?.trim() || FALLBACK_TITLE)
+const deleteUrl = computed(() => {
+  const base = props.apiUrl.replace(/\/+$/, '')
+  return `${base}/event/delete/${encodeURIComponent(props.eventId)}`
+})
+
 const lockBody = () => {
+  if (hasBodyLock) return
+
+  previousOverflow = document.body.style.overflow
+  hasBodyLock = true
   document.body.classList.add('modal-open')
   document.body.style.overflow = 'hidden'
 }
 
 const unlockBody = () => {
+  if (!hasBodyLock) return
+
+  hasBodyLock = false
   document.body.classList.remove('modal-open')
-  document.body.style.overflow = ''
+  document.body.style.overflow = previousOverflow
 }
 
 const closeModal = () => {
-  if (isDeleting.value) {
-    return
-  }
+  if (isDeleting.value) return
 
   errorMessage.value = ''
   emit('update:modelValue', false)
 }
 
+const parseResponse = async (response) => {
+  const type = response.headers.get('content-type') || ''
+  return type.includes('application/json') ? response.json().catch(() => null) : null
+}
+
+const makeDeleteError = (response, data) => {
+  const error = new Error(data?.message || DELETE_ERROR)
+  error.response = data
+  error.status = response.status
+  return error
+}
+
 const deleteEventRequest = async () => {
-  const response = await fetch(`${props.apiUrl}/event/delete/${props.eventId}`, {
+  activeRequest?.abort()
+  activeRequest = new AbortController()
+
+  const response = await fetch(deleteUrl.value, {
     method: 'DELETE',
+    cache: 'no-store',
     credentials: 'include',
+    signal: activeRequest.signal,
   })
+  const data = await parseResponse(response)
 
-  const data = await response.json().catch(() => null)
-
-  if (!response.ok || !data?.status) {
-    const error = new Error(data?.message || 'Не удалось удалить событие')
-    error.response = data
-    error.status = response.status
-    throw error
-  }
+  if (!response.ok || !data?.status) throw makeDeleteError(response, data)
 
   return data
 }
 
 const deleteEvent = async () => {
-  if (isDeleting.value) {
-    return
-  }
+  if (isDeleting.value) return
 
   try {
     isDeleting.value = true
@@ -171,14 +209,13 @@ const deleteEvent = async () => {
     emit('deleted', data)
     emit('update:modelValue', false)
   } catch (err) {
-    console.error('Delete event modal error:', err)
+    if (err?.name === 'AbortError') return
 
-    errorMessage.value =
-      err?.response?.message ||
-      err?.message ||
-      'Не удалось удалить событие'
+    console.error('Delete event modal error:', err)
+    errorMessage.value = err?.response?.message || err?.message || DELETE_ERROR
   } finally {
     isDeleting.value = false
+    activeRequest = null
   }
 }
 
@@ -187,14 +224,18 @@ watch(
   (value) => {
     if (value) {
       lockBody()
+      nextTick(() => modalRef.value?.focus())
       return
     }
 
     unlockBody()
-  }
+    errorMessage.value = ''
+  },
+  { immediate: true }
 )
 
 onBeforeUnmount(() => {
+  activeRequest?.abort()
   unlockBody()
 })
 </script>

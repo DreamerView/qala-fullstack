@@ -24,10 +24,7 @@
           </div>
 
           <h2>Событие не найдено</h2>
-
-          <p>
-            Возможно, событие было удалено, скрыто или ссылка больше недействительна.
-          </p>
+          <p>Возможно, событие было удалено, скрыто или ссылка больше недействительна.</p>
 
           <div class="qala-not-found-actions">
             <button type="button" class="qala-secondary-btn" @click="router.push('/')">
@@ -76,12 +73,7 @@
         <div class="qala-create-left">
           <section v-if="activeTypeConfig.showCover" class="qala-upload-section">
             <label class="qala-cover-upload">
-              <input
-                type="file"
-                accept="image/*"
-                hidden
-                @change="handleImageUpload"
-              />
+              <input type="file" accept="image/*" hidden @change="handleImageUpload" />
 
               <img
                 v-if="form.image"
@@ -131,7 +123,7 @@
               </label>
 
               <input
-                v-model="form.title"
+                v-model.trim="form.title"
                 type="text"
                 class="qala-input"
                 :placeholder="activeTypeConfig.titlePlaceholder"
@@ -167,39 +159,27 @@
               </small>
             </div>
 
-            <div v-if="activeTypeConfig.showDate || activeTypeConfig.showTime" class="qala-form-row">
-              <div v-if="activeTypeConfig.showDate" class="qala-form-group">
+            <div class="qala-form-row">
+              <div class="qala-form-group">
                 <label>
                   {{ activeTypeConfig.dateLabel }}
-                  <span v-if="activeTypeConfig.required.date" class="qala-required">*</span>
-                  <span v-else class="qala-optional">необязательно</span>
+                  <span class="qala-required">*</span>
                 </label>
 
-                <input
-                  v-model="form.date"
-                  type="date"
-                  class="qala-input"
-                  :required="activeTypeConfig.required.date"
-                />
+                <input v-model="form.date" type="date" class="qala-input" required />
               </div>
 
-              <div v-if="activeTypeConfig.showTime" class="qala-form-group">
+              <div class="qala-form-group">
                 <label>
                   {{ activeTypeConfig.timeLabel }}
-                  <span v-if="activeTypeConfig.required.time" class="qala-required">*</span>
-                  <span v-else class="qala-optional">необязательно</span>
+                  <span class="qala-required">*</span>
                 </label>
 
-                <input
-                  v-model="form.time"
-                  type="time"
-                  class="qala-input"
-                  :required="activeTypeConfig.required.time"
-                />
+                <input v-model="form.time" type="time" class="qala-input" required />
               </div>
             </div>
 
-            <div v-if="activeTypeConfig.showLocation" class="qala-form-group">
+            <div class="qala-form-group">
               <label>
                 {{ activeTypeConfig.locationLabel }}
                 <span class="qala-required">*</span>
@@ -221,11 +201,7 @@
                   </strong>
 
                   <small>
-                    {{
-                      hasSelectedLocation
-                        ? form.address
-                        : activeTypeConfig.locationHint
-                    }}
+                    {{ hasSelectedLocation ? form.address : activeTypeConfig.locationHint }}
                   </small>
                 </span>
 
@@ -249,7 +225,7 @@
               </label>
 
               <textarea
-                v-model="form.description"
+                v-model.trim="form.description"
                 class="qala-textarea"
                 rows="5"
                 :placeholder="activeTypeConfig.descriptionPlaceholder"
@@ -257,7 +233,71 @@
               ></textarea>
             </div>
 
-            <div v-if="activeTypeConfig.showProgram" class="qala-form-group">
+            <section class="qala-inner-section">
+              <div class="qala-section-title">
+                <h3>Детали публикации</h3>
+                <p>{{ activeTypeConfig.detailsHint }}</p>
+              </div>
+
+              <div class="qala-form-row">
+                <div v-if="activeTypeConfig.showDuration" class="qala-form-group">
+                  <label>
+                    Длительность
+                    <span class="qala-optional">необязательно</span>
+                  </label>
+
+                  <input
+                    v-model.number="form.durationMinutes"
+                    type="number"
+                    min="1"
+                    step="1"
+                    class="qala-input"
+                    placeholder="Например: 120 минут"
+                  />
+                </div>
+
+                <div v-if="activeTypeConfig.showAgeLimit" class="qala-form-group">
+                  <label>
+                    Возраст
+                    <span class="qala-optional">необязательно</span>
+                  </label>
+
+                  <select v-model="form.ageLimit" class="qala-input">
+                    <option value="">Без ограничения</option>
+                    <option v-for="item in ageLimits" :key="item" :value="item">
+                      {{ item }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="qala-form-row">
+                <div class="qala-form-group">
+                  <label>Язык</label>
+
+                  <select v-model="form.language" class="qala-input">
+                    <option v-for="item in languages" :key="item.value" :value="item.value">
+                      {{ item.label }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="qala-form-group">
+                  <label>Видимость</label>
+
+                  <select v-model="form.visibility" class="qala-input">
+                    <option value="public">Публично</option>
+                    <option value="unlisted">Только по ссылке</option>
+                    <option value="private">Приватно</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <section
+              v-if="activeTypeConfig.showProgram"
+              class="qala-inner-section"
+            >
               <div class="qala-toggle-row">
                 <div>
                   <label>Программа события</label>
@@ -274,12 +314,8 @@
                   <span></span>
                 </button>
               </div>
-            </div>
 
-            <div v-if="activeTypeConfig.showProgram && form.hasProgram" class="qala-form-group">
-              <label>Программа</label>
-
-              <div class="qala-program-list">
+              <div v-if="form.hasProgram" class="qala-program-list">
                 <div
                   v-for="(item, index) in form.program"
                   :key="item.id"
@@ -293,7 +329,6 @@
                         type="button"
                         class="qala-program-action-btn"
                         :disabled="index === 0"
-                        title="Поднять выше"
                         @click="moveProgramItem(index, -1)"
                       >
                         <i class="bi bi-arrow-up"></i>
@@ -303,7 +338,6 @@
                         type="button"
                         class="qala-program-action-btn"
                         :disabled="index === form.program.length - 1"
-                        title="Опустить ниже"
                         @click="moveProgramItem(index, 1)"
                       >
                         <i class="bi bi-arrow-down"></i>
@@ -312,7 +346,6 @@
                       <button
                         type="button"
                         class="qala-program-remove"
-                        title="Удалить пункт"
                         @click="removeProgramItem(index)"
                       >
                         <i class="bi bi-trash"></i>
@@ -327,11 +360,7 @@
                         <span class="qala-optional">необязательно</span>
                       </label>
 
-                      <input
-                        v-model="item.time"
-                        type="time"
-                        class="qala-input"
-                      />
+                      <input v-model="item.time" type="time" class="qala-input" />
                     </div>
 
                     <div class="qala-form-group">
@@ -341,7 +370,7 @@
                       </label>
 
                       <input
-                        v-model="item.title"
+                        v-model.trim="item.title"
                         type="text"
                         class="qala-input"
                         placeholder="Например: Сбор гостей"
@@ -356,72 +385,447 @@
                     </label>
 
                     <textarea
-                      v-model="item.description"
+                      v-model.trim="item.description"
                       class="qala-textarea qala-program-textarea"
                       rows="2"
                       placeholder="Кратко опиши, что будет происходить"
                     ></textarea>
                   </div>
                 </div>
-              </div>
 
-              <button type="button" class="qala-program-add" @click="addProgramItem">
-                <i class="bi bi-plus-lg"></i>
-                <span>Добавить пункт</span>
-              </button>
-            </div>
-
-            <div v-if="activeTypeConfig.showVisitType" class="qala-form-group">
-              <label>Тип посещения</label>
-
-              <div class="qala-visit-type-grid">
-                <button
-                  v-for="type in visitTypes"
-                  :key="type.value"
-                  type="button"
-                  class="qala-visit-type-btn"
-                  :class="{ active: form.visitType === type.value }"
-                  @click="setVisitType(type.value)"
-                >
-                  <i :class="type.icon"></i>
-                  <span>{{ type.label }}</span>
+                <button type="button" class="qala-program-add" @click="addProgramItem">
+                  <i class="bi bi-plus-lg"></i>
+                  <span>Добавить пункт</span>
                 </button>
               </div>
-            </div>
+            </section>
 
-            <div v-if="activeTypeConfig.showPrice || activeTypeConfig.showLimit" class="qala-form-row">
-              <div v-if="activeTypeConfig.showPrice && form.visitType === 'paid'" class="qala-form-group">
-                <label>
-                  Цена, ₸
-                  <span class="qala-required">*</span>
-                </label>
-
-                <input
-                  v-model.number="form.price"
-                  type="number"
-                  min="1"
-                  step="1"
-                  class="qala-input"
-                  placeholder="Например: 3000"
-                  required
-                />
+            <section
+              v-if="activeTypeConfig.showVisitType || activeTypeConfig.showLimit || activeTypeConfig.showRegistration"
+              class="qala-inner-section"
+            >
+              <div class="qala-section-title">
+                <h3>Участие</h3>
+                <p>{{ activeTypeConfig.participationHint }}</p>
               </div>
 
-              <div v-if="activeTypeConfig.showLimit" class="qala-form-group">
-                <label>
-                  {{ activeTypeConfig.limitLabel }}
-                  <span class="qala-optional">необязательно</span>
+              <div v-if="activeTypeConfig.showVisitType" class="qala-form-group">
+                <label>Тип посещения</label>
+
+                <div class="qala-visit-type-grid">
+                  <button
+                    v-for="type in visitTypes"
+                    :key="type.value"
+                    type="button"
+                    class="qala-visit-type-btn"
+                    :class="{ active: form.visitType === type.value }"
+                    @click="setVisitType(type.value)"
+                  >
+                    <i :class="type.icon"></i>
+                    <span>{{ type.label }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="qala-form-row">
+                <div
+                  v-if="activeTypeConfig.showPrice && form.visitType === 'paid'"
+                  class="qala-form-group"
+                >
+                  <label>
+                    Цена, ₸
+                    <span class="qala-required">*</span>
+                  </label>
+
+                  <input
+                    v-model.number="form.price"
+                    type="number"
+                    min="1"
+                    step="1"
+                    class="qala-input"
+                    placeholder="Например: 3000"
+                    required
+                  />
+                </div>
+
+                <div v-if="activeTypeConfig.showLimit" class="qala-form-group">
+                  <label>
+                    {{ activeTypeConfig.limitLabel }}
+                    <span class="qala-optional">необязательно</span>
+                  </label>
+
+                  <input
+                    v-model.number="form.limit"
+                    type="number"
+                    min="1"
+                    class="qala-input"
+                    :placeholder="activeTypeConfig.limitPlaceholder"
+                  />
+                </div>
+              </div>
+
+              <div v-if="activeTypeConfig.showRegistration" class="qala-form-row">
+                <div class="qala-form-group">
+                  <label>Запись</label>
+
+                  <select v-model="form.accessType" class="qala-input">
+                    <option value="open">Свободная запись</option>
+                    <option value="approval_required">С подтверждением</option>
+                    <option value="link_only">Только по ссылке</option>
+                    <option value="invite_only">Только по приглашению</option>
+                  </select>
+                </div>
+
+                <div class="qala-form-group">
+                  <label>
+                    Дедлайн записи
+                    <span class="qala-optional">необязательно</span>
+                  </label>
+
+                  <input
+                    v-model="form.registrationDeadline"
+                    type="datetime-local"
+                    class="qala-input"
+                  />
+                </div>
+              </div>
+
+              <div v-if="activeTypeConfig.showRegistration" class="qala-switch-grid">
+                <label class="qala-switch-card">
+                  <input v-model="form.registrationRequired" type="checkbox" />
+                  <span>
+                    <strong>Запись обязательна</strong>
+                    <small>Пользователь должен нажать “Я пойду”</small>
+                  </span>
                 </label>
 
-                <input
-                  v-model="form.limit"
-                  type="number"
-                  min="1"
-                  class="qala-input"
-                  :placeholder="activeTypeConfig.limitPlaceholder"
-                />
+                <label class="qala-switch-card">
+                  <input v-model="form.allowWaitlist" type="checkbox" />
+                  <span>
+                    <strong>Лист ожидания</strong>
+                    <small>Если лимит заполнен, можно ждать место</small>
+                  </span>
+                </label>
               </div>
-            </div>
+            </section>
+
+            <section v-if="activeTypeConfig.showPolls" class="qala-inner-section">
+              <div class="qala-section-title">
+                <h3>Опрос</h3>
+                <p>Подходит для плана: выбрать дату, место, формат или проверить интерес.</p>
+              </div>
+
+              <div class="qala-toggle-row">
+                <div>
+                  <label>Добавить опрос</label>
+                  <small>Особенно полезно для планов и идей</small>
+                </div>
+
+                <button
+                  type="button"
+                  class="qala-toggle"
+                  :class="{ active: form.hasPoll }"
+                  :aria-pressed="form.hasPoll"
+                  @click="togglePoll"
+                >
+                  <span></span>
+                </button>
+              </div>
+
+              <div v-if="form.hasPoll" class="qala-program-list">
+                <div
+                  v-for="(poll, pollIndex) in form.polls"
+                  :key="poll.id"
+                  class="qala-program-item"
+                >
+                  <div class="qala-program-item-top">
+                    <strong>Опрос {{ pollIndex + 1 }}</strong>
+
+                    <button
+                      type="button"
+                      class="qala-program-remove"
+                      @click="removePoll(pollIndex)"
+                    >
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+
+                  <div class="qala-form-group">
+                    <label>
+                      Вопрос
+                      <span class="qala-required">*</span>
+                    </label>
+
+                    <input
+                      v-model.trim="poll.question"
+                      type="text"
+                      class="qala-input"
+                      placeholder="Например: Какую дату выбрать?"
+                    />
+                  </div>
+
+                  <div class="qala-form-group">
+                    <label>Тип выбора</label>
+
+                    <select v-model="poll.pollType" class="qala-input">
+                      <option value="single">Один вариант</option>
+                      <option value="multiple">Несколько вариантов</option>
+                    </select>
+                  </div>
+
+                  <div class="qala-program-list">
+                    <div
+                      v-for="(option, optionIndex) in poll.options"
+                      :key="option.id"
+                      class="qala-inline-option"
+                    >
+                      <input
+                        v-model.trim="option.text"
+                        type="text"
+                        class="qala-input"
+                        :placeholder="`Вариант ${optionIndex + 1}`"
+                      />
+
+                      <button
+                        type="button"
+                        class="qala-mini-danger"
+                        :disabled="poll.options.length <= 2"
+                        @click="removePollOption(pollIndex, optionIndex)"
+                      >
+                        <i class="bi bi-x-lg"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="qala-program-add"
+                    @click="addPollOption(pollIndex)"
+                  >
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Добавить вариант</span>
+                  </button>
+                </div>
+
+                <button type="button" class="qala-program-add" @click="addPoll">
+                  <i class="bi bi-plus-lg"></i>
+                  <span>Добавить ещё опрос</span>
+                </button>
+              </div>
+            </section>
+
+            <section v-if="activeTypeConfig.showRegistrationQuestions" class="qala-inner-section">
+              <div class="qala-section-title">
+                <h3>Вопросы при записи</h3>
+                <p>Организатор может заранее спросить нужную информацию у участника.</p>
+              </div>
+
+              <div class="qala-toggle-row">
+                <div>
+                  <label>Добавить вопросы</label>
+                  <small>Например: опыт, размер группы, комментарий, пожелания</small>
+                </div>
+
+                <button
+                  type="button"
+                  class="qala-toggle"
+                  :class="{ active: form.hasRegistrationQuestions }"
+                  :aria-pressed="form.hasRegistrationQuestions"
+                  @click="toggleRegistrationQuestions"
+                >
+                  <span></span>
+                </button>
+              </div>
+
+              <div v-if="form.hasRegistrationQuestions" class="qala-program-list">
+                <div
+                  v-for="(question, index) in form.registrationQuestions"
+                  :key="question.id"
+                  class="qala-program-item"
+                >
+                  <div class="qala-program-item-top">
+                    <strong>Вопрос {{ index + 1 }}</strong>
+
+                    <button
+                      type="button"
+                      class="qala-program-remove"
+                      @click="removeRegistrationQuestion(index)"
+                    >
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+
+                  <div class="qala-form-group">
+                    <label>
+                      Текст вопроса
+                      <span class="qala-required">*</span>
+                    </label>
+
+                    <input
+                      v-model.trim="question.question"
+                      type="text"
+                      class="qala-input"
+                      placeholder="Например: Сколько человек будет с вами?"
+                    />
+                  </div>
+
+                  <div class="qala-form-row">
+                    <div class="qala-form-group">
+                      <label>Тип поля</label>
+
+                      <select v-model="question.inputType" class="qala-input">
+                        <option value="text">Текст</option>
+                        <option value="number">Число</option>
+                        <option value="textarea">Большой текст</option>
+                        <option value="select">Выбор</option>
+                        <option value="checkbox">Чекбокс</option>
+                      </select>
+                    </div>
+
+                    <label class="qala-switch-card compact">
+                      <input v-model="question.isRequired" type="checkbox" />
+                      <span>
+                        <strong>Обязательный</strong>
+                        <small>Без ответа нельзя записаться</small>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div
+                    v-if="['select', 'checkbox'].includes(question.inputType)"
+                    class="qala-program-list"
+                  >
+                    <div
+                      v-for="(option, optionIndex) in question.options"
+                      :key="option.id"
+                      class="qala-inline-option"
+                    >
+                      <input
+                        v-model.trim="option.text"
+                        type="text"
+                        class="qala-input"
+                        :placeholder="`Вариант ${optionIndex + 1}`"
+                      />
+
+                      <button
+                        type="button"
+                        class="qala-mini-danger"
+                        :disabled="question.options.length <= 1"
+                        @click="removeRegistrationOption(index, optionIndex)"
+                      >
+                        <i class="bi bi-x-lg"></i>
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="qala-program-add"
+                      @click="addRegistrationOption(index)"
+                    >
+                      <i class="bi bi-plus-lg"></i>
+                      <span>Добавить вариант</span>
+                    </button>
+                  </div>
+                </div>
+
+                <button type="button" class="qala-program-add" @click="addRegistrationQuestion">
+                  <i class="bi bi-plus-lg"></i>
+                  <span>Добавить вопрос</span>
+                </button>
+              </div>
+            </section>
+
+            <section v-if="activeTypeConfig.showContacts" class="qala-inner-section">
+              <div class="qala-section-title">
+                <h3>Контакты и ссылка</h3>
+                <p>{{ activeTypeConfig.contactsHint }}</p>
+              </div>
+
+              <div class="qala-form-row">
+                <div class="qala-form-group">
+                  <label>
+                    Телефон
+                    <span class="qala-optional">необязательно</span>
+                  </label>
+
+                  <input
+                    v-model.trim="form.contactPhone"
+                    type="tel"
+                    class="qala-input"
+                    placeholder="+7..."
+                  />
+                </div>
+
+                <div class="qala-form-group">
+                  <label>
+                    WhatsApp
+                    <span class="qala-optional">необязательно</span>
+                  </label>
+
+                  <input
+                    v-model.trim="form.contactWhatsapp"
+                    type="text"
+                    class="qala-input"
+                    placeholder="+7... или ссылка"
+                  />
+                </div>
+              </div>
+
+              <div class="qala-form-row">
+                <div class="qala-form-group">
+                  <label>
+                    Telegram
+                    <span class="qala-optional">необязательно</span>
+                  </label>
+
+                  <input
+                    v-model.trim="form.contactTelegram"
+                    type="text"
+                    class="qala-input"
+                    placeholder="@username"
+                  />
+                </div>
+
+                <div class="qala-form-group">
+                  <label>
+                    Внешняя ссылка
+                    <span class="qala-optional">необязательно</span>
+                  </label>
+
+                  <input
+                    v-model.trim="form.externalUrl"
+                    type="url"
+                    class="qala-input"
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section class="qala-inner-section">
+              <div class="qala-section-title">
+                <h3>Настройки</h3>
+                <p>Небольшие правила отображения публикации.</p>
+              </div>
+
+              <div class="qala-switch-grid">
+                <label class="qala-switch-card">
+                  <input v-model="form.allowComments" type="checkbox" />
+                  <span>
+                    <strong>Комментарии</strong>
+                    <small>Разрешить обсуждение</small>
+                  </span>
+                </label>
+
+                <label class="qala-switch-card">
+                  <input v-model="form.allowShare" type="checkbox" />
+                  <span>
+                    <strong>Поделиться</strong>
+                    <small>Разрешить отправку ссылки</small>
+                  </span>
+                </label>
+              </div>
+            </section>
           </section>
         </div>
 
@@ -465,13 +869,13 @@
                 <div class="qala-preview-content">
                   <h3>{{ form.title || activeTypeConfig.previewTitle }}</h3>
 
-                  <p v-if="activeTypeConfig.showLocation">
+                  <p>
                     <i class="bi bi-geo-alt"></i>
                     {{ form.location || activeTypeConfig.previewLocation }}
                   </p>
 
                   <div class="qala-preview-meta">
-                    <span v-if="activeTypeConfig.showTime">
+                    <span>
                       <i class="bi bi-clock"></i>
                       {{ form.time || '00:00' }}
                     </span>
@@ -481,9 +885,19 @@
                       {{ previewPrice }}
                     </span>
 
-                    <span v-if="activeTypeConfig.showLimit && form.limit">
+                    <span v-if="form.limit">
                       <i class="bi bi-people"></i>
                       до {{ form.limit }} чел.
+                    </span>
+
+                    <span v-if="form.ageLimit">
+                      <i class="bi bi-shield-check"></i>
+                      {{ form.ageLimit }}
+                    </span>
+
+                    <span>
+                      <i class="bi bi-translate"></i>
+                      {{ previewLanguage }}
                     </span>
                   </div>
 
@@ -517,10 +931,21 @@
 
                   <div class="qala-preview-program-content">
                     <strong>{{ item.title || 'Название пункта' }}</strong>
+                    <p v-if="item.description">{{ item.description }}</p>
+                  </div>
+                </div>
+              </div>
 
-                    <p v-if="item.description">
-                      {{ item.description }}
-                    </p>
+              <div v-if="activeTypeConfig.showPolls && form.hasPoll && previewPolls.length" class="qala-preview-program">
+                <h4>Опрос</h4>
+
+                <div v-for="poll in previewPolls" :key="poll.id" class="qala-preview-poll">
+                  <strong>{{ poll.question || 'Вопрос опроса' }}</strong>
+
+                  <div class="qala-preview-poll-options">
+                    <span v-for="option in poll.options" :key="option.id">
+                      {{ option.text || 'Вариант' }}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -552,11 +977,7 @@
                 <span>Очистить</span>
               </button>
 
-              <button
-                type="submit"
-                class="qala-primary-btn"
-                :disabled="isSubmitting"
-              >
+              <button type="submit" class="qala-primary-btn" :disabled="isSubmitting">
                 <i :class="submitButtonIcon"></i>
                 <span>{{ submitButtonText }}</span>
               </button>
@@ -613,7 +1034,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import CategoryPickerModal from '@/components/events/CategoryPickerModal.vue'
 import LocationPickerModal from '@/components/events/LocationPickerModal.vue'
@@ -629,66 +1050,67 @@ const eventTypes = [
     value: 'event',
     label: 'Мероприятие',
     icon: 'bi bi-calendar-event',
-    description: 'Полноценное событие с деталями, программой и участниками',
+    description: 'Полноценное событие с программой, записью и участниками',
   },
   {
     value: 'meeting',
     label: 'Встреча',
     icon: 'bi bi-people',
-    description: 'Простой сбор людей: сходить, встретиться, провести время вместе',
+    description: 'Небольшая встреча людей в конкретном месте',
   },
   {
     value: 'announcement',
     label: 'Анонс',
     icon: 'bi bi-megaphone',
-    description: 'Сообщение о событии, новости, открытии или важной активности',
+    description: 'Новость, открытие, запуск, объявление или важное сообщение',
   },
   {
     value: 'activity',
     label: 'Активность',
     icon: 'bi bi-lightning-charge',
-    description: 'Совместное действие: прогулка, спорт, волонтёрство, поездка',
+    description: 'Совместное действие: спорт, прогулка, волонтёрство, поездка',
   },
   {
     value: 'plan',
     label: 'План',
     icon: 'bi bi-chat-square-text',
-    description: 'Идея или предложение, чтобы сначала собрать интерес людей',
+    description: 'Идея, чтобы сначала собрать интерес и выбрать формат',
   },
 ]
 
 const eventTypeConfigs = {
   event: {
-    helper: 'Подходит для полноценного события с датой, местом, программой и участниками.',
+    helper: 'Полный формат: дата, место, программа, запись, участники, вопросы и контакты.',
     titleLabel: 'Название мероприятия',
     titlePlaceholder: 'Например: Frontend Meetup Karaganda',
     dateLabel: 'Дата',
     timeLabel: 'Время',
     locationLabel: 'Локация события',
     locationHint: 'Обязательное поле — выбери точное место на карте',
-    descriptionLabel: 'Описание',
+    descriptionLabel: 'Описание мероприятия',
     descriptionPlaceholder: 'Расскажи, что будет на событии, кому оно подходит и почему стоит прийти',
     limitLabel: 'Лимит участников',
     limitPlaceholder: '100',
     previewTitle: 'Название мероприятия',
     previewLocation: 'Место проведения',
+    detailsHint: 'Для мероприятия полезны длительность, возраст, язык и правила записи.',
+    participationHint: 'Можно сделать бесплатное или платное участие, лимит и подтверждение заявок.',
+    contactsHint: 'Контакты помогут участникам уточнить детали.',
     showCover: true,
-    showDate: true,
-    showTime: true,
-    showLocation: true,
     showProgram: true,
     showVisitType: true,
     showPrice: true,
     showLimit: true,
-    required: {
-      date: true,
-      time: true,
-      location: true,
-    },
+    showDuration: true,
+    showAgeLimit: true,
+    showRegistration: true,
+    showRegistrationQuestions: true,
+    showPolls: false,
+    showContacts: true,
   },
 
   meeting: {
-    helper: 'Лёгкий формат, чтобы собрать людей куда-то сходить или просто встретиться.',
+    helper: 'Простой формат для встречи: где, когда, кто идёт и сколько мест.',
     titleLabel: 'Название встречи',
     titlePlaceholder: 'Например: Кофе и знакомство в центре',
     dateLabel: 'Дата встречи',
@@ -701,23 +1123,24 @@ const eventTypeConfigs = {
     limitPlaceholder: 'Например: 10',
     previewTitle: 'Название встречи',
     previewLocation: 'Место встречи',
+    detailsHint: 'Для встречи лучше оставить минимум полей, чтобы быстро создать публикацию.',
+    participationHint: 'Можно указать лимит и включить запись с подтверждением.',
+    contactsHint: 'Контакты можно оставить, если участникам нужно связаться с организатором.',
     showCover: true,
-    showDate: true,
-    showTime: true,
-    showLocation: true,
     showProgram: false,
     showVisitType: true,
     showPrice: true,
     showLimit: true,
-    required: {
-      date: true,
-      time: true,
-      location: true,
-    },
+    showDuration: true,
+    showAgeLimit: false,
+    showRegistration: true,
+    showRegistrationQuestions: false,
+    showPolls: false,
+    showContacts: true,
   },
 
   announcement: {
-    helper: 'Для новости, открытия, набора, важного городского сообщения или анонса.',
+    helper: 'Формат объявления: важная информация, новость, запуск или открытие.',
     titleLabel: 'Заголовок анонса',
     titlePlaceholder: 'Например: Открытие нового пространства в Караганде',
     dateLabel: 'Дата анонса',
@@ -726,27 +1149,28 @@ const eventTypeConfigs = {
     locationHint: 'Обязательное поле — выбери место на карте',
     descriptionLabel: 'Текст анонса',
     descriptionPlaceholder: 'Кратко и понятно расскажи, что произошло или что скоро будет',
-    limitLabel: 'Лимит, если нужен',
+    limitLabel: 'Лимит',
     limitPlaceholder: 'Необязательно',
     previewTitle: 'Заголовок анонса',
     previewLocation: 'Место анонса',
+    detailsHint: 'Для анонса важнее текст, место, дата и внешняя ссылка.',
+    participationHint: '',
+    contactsHint: 'Для анонса особенно полезна внешняя ссылка: сайт, Instagram, форма или источник.',
     showCover: true,
-    showDate: true,
-    showTime: true,
-    showLocation: true,
     showProgram: false,
     showVisitType: false,
     showPrice: false,
     showLimit: false,
-    required: {
-      date: true,
-      time: true,
-      location: true,
-    },
+    showDuration: false,
+    showAgeLimit: false,
+    showRegistration: false,
+    showRegistrationQuestions: false,
+    showPolls: false,
+    showContacts: true,
   },
 
   activity: {
-    helper: 'Для совместного действия: прогулка, пробежка, уборка, спорт, поездка.',
+    helper: 'Формат для совместного действия: спорт, прогулка, уборка, поездка, волонтёрство.',
     titleLabel: 'Название активности',
     titlePlaceholder: 'Например: Утренняя пробежка в парке',
     dateLabel: 'Дата активности',
@@ -759,78 +1183,68 @@ const eventTypeConfigs = {
     limitPlaceholder: 'Например: 20',
     previewTitle: 'Название активности',
     previewLocation: 'Место сбора',
+    detailsHint: 'Для активности полезны длительность, возраст и лимит участников.',
+    participationHint: 'Можно собрать участников, включить лист ожидания и подтверждение.',
+    contactsHint: 'Контакты нужны, если участникам важно уточнить подготовку или маршрут.',
     showCover: true,
-    showDate: true,
-    showTime: true,
-    showLocation: true,
     showProgram: false,
     showVisitType: true,
     showPrice: true,
     showLimit: true,
-    required: {
-      date: true,
-      time: true,
-      location: true,
-    },
+    showDuration: true,
+    showAgeLimit: true,
+    showRegistration: true,
+    showRegistrationQuestions: true,
+    showPolls: false,
+    showContacts: true,
   },
 
   plan: {
-    helper: 'Для идеи, когда нужно сначала проверить интерес людей, а потом уже сделать событие.',
+    helper: 'Формат идеи: сначала проверить интерес, собрать людей и выбрать детали через опрос.',
     titleLabel: 'Название плана',
     titlePlaceholder: 'Например: Кто хочет сходить на футбол?',
-    dateLabel: 'Дата плана',
-    timeLabel: 'Время плана',
-    locationLabel: 'Место плана',
-    locationHint: 'Обязательное поле — выбери место на карте',
+    dateLabel: 'Ориентировочная дата',
+    timeLabel: 'Ориентировочное время',
+    locationLabel: 'Ориентировочное место',
+    locationHint: 'Обязательное поле — выбери примерное место на карте',
     descriptionLabel: 'Описание идеи',
     descriptionPlaceholder: 'Напиши идею, кого хочешь собрать и что нужно обсудить',
     limitLabel: 'Желаемое количество людей',
     limitPlaceholder: 'Например: 5',
     previewTitle: 'Название плана',
-    previewLocation: 'Место плана',
+    previewLocation: 'Ориентировочное место',
+    detailsHint: 'Для плана лучше оставить идею простой, но добавить опрос.',
+    participationHint: 'Можно ограничить количество заинтересованных людей.',
+    contactsHint: 'Контакты обычно не нужны, но можно оставить ссылку на обсуждение.',
     showCover: false,
-    showDate: true,
-    showTime: true,
-    showLocation: true,
     showProgram: false,
     showVisitType: false,
     showPrice: false,
     showLimit: true,
-    required: {
-      date: true,
-      time: true,
-      location: true,
-    },
+    showDuration: false,
+    showAgeLimit: false,
+    showRegistration: true,
+    showRegistrationQuestions: false,
+    showPolls: true,
+    showContacts: true,
   },
 }
 
 const visitTypes = [
-  {
-    value: 'free',
-    label: 'Бесплатно',
-    icon: 'bi bi-gift',
-  },
-  {
-    value: 'paid',
-    label: 'Платно',
-    icon: 'bi bi-cash-coin',
-  },
+  { value: 'free', label: 'Бесплатно', icon: 'bi bi-gift' },
+  { value: 'paid', label: 'Платно', icon: 'bi bi-cash-coin' },
 ]
 
-const months = [
-  'ЯНВ',
-  'ФЕВ',
-  'МАР',
-  'АПР',
-  'МАЙ',
-  'ИЮН',
-  'ИЮЛ',
-  'АВГ',
-  'СЕН',
-  'ОКТ',
-  'НОЯ',
-  'ДЕК',
+const languages = [
+  { value: 'ru', label: 'Русский' },
+  { value: 'kk', label: 'Қазақша' },
+  { value: 'en', label: 'English' },
+  { value: 'mixed', label: 'Смешанный' },
 ]
+
+const ageLimits = ['0+', '6+', '12+', '16+', '18+']
+
+const months = ['ЯНВ', 'ФЕВ', 'МАР', 'АПР', 'МАЙ', 'ИЮН', 'ИЮЛ', 'АВГ', 'СЕН', 'ОКТ', 'НОЯ', 'ДЕК']
 
 const isSubmitted = ref(false)
 const isSubmitting = ref(false)
@@ -848,72 +1262,40 @@ const errors = reactive({
 })
 
 let programId = 1
-
-const eventId = computed(() => route.params.id || null)
-const isEditMode = computed(() => Boolean(eventId.value))
-const showTypeGate = computed(() => !isEditMode.value && !hasPickedEventType.value)
-
-const activeEventType = computed(() => {
-  return eventTypes.find((type) => type.value === form.eventType) || eventTypes[0]
-})
-
-const activeTypeConfig = computed(() => {
-  return eventTypeConfigs[form.eventType] || eventTypeConfigs.event
-})
-
-const pageTitle = computed(() => {
-  if (isEventNotFound.value) {
-    return 'Событие не найдено'
-  }
-
-  if (showTypeGate.value) {
-    return 'Создать публикацию'
-  }
-
-  return isEditMode.value ? 'Редактировать событие' : `Создать: ${activeEventType.value.label}`
-})
-
-const pageSubtitle = computed(() => {
-  if (isEventNotFound.value) {
-    return 'Проверь ссылку или создай новое событие'
-  }
-
-  if (showTypeGate.value) {
-    return 'Сначала выбери формат: мероприятие, встреча, анонс, активность или план'
-  }
-
-  return isEditMode.value
-    ? 'Обнови данные городской публикации в Qala'
-    : activeTypeConfig.value.helper
-})
-
-const submitButtonText = computed(() => {
-  if (isSubmitting.value) {
-    return isEditMode.value ? 'Сохраняем...' : 'Публикуем...'
-  }
-
-  return isEditMode.value ? 'Сохранить изменения' : 'Опубликовать'
-})
-
-const submitButtonIcon = computed(() => {
-  if (isSubmitting.value) {
-    return 'bi bi-arrow-repeat'
-  }
-
-  return isEditMode.value ? 'bi bi-check-circle' : 'bi bi-plus-circle'
-})
-
-const successMessage = computed(() => {
-  return isEditMode.value
-    ? 'Изменения сохранены'
-    : 'Публикация подготовлена к размещению'
-})
+let pollId = 1
+let optionId = 1
+let questionId = 1
 
 const createEmptyProgramItem = () => ({
   id: programId++,
   time: '',
   title: '',
   description: '',
+})
+
+const createPollOption = (text = '') => ({
+  id: optionId++,
+  text,
+})
+
+const createEmptyPoll = () => ({
+  id: pollId++,
+  question: '',
+  pollType: 'single',
+  options: [createPollOption(), createPollOption()],
+})
+
+const createRegistrationOption = (text = '') => ({
+  id: optionId++,
+  text,
+})
+
+const createEmptyRegistrationQuestion = () => ({
+  id: questionId++,
+  question: '',
+  inputType: 'text',
+  isRequired: false,
+  options: [createRegistrationOption()],
 })
 
 const form = reactive({
@@ -932,18 +1314,88 @@ const form = reactive({
 
   date: '',
   time: '',
+
+  durationMinutes: '',
+  ageLimit: '',
+  language: 'ru',
+
   location: '',
   address: '',
   locationUrl: '',
   lat: null,
   lng: null,
+
   description: '',
+
   hasProgram: false,
+  program: [createEmptyProgramItem()],
+
   visitType: 'free',
   price: '',
   limit: '',
+
+  registrationRequired: true,
+  registrationDeadline: '',
+  accessType: 'open',
+  allowWaitlist: false,
+
+  hasPoll: false,
+  polls: [createEmptyPoll()],
+
+  hasRegistrationQuestions: false,
+  registrationQuestions: [createEmptyRegistrationQuestion()],
+
+  contactPhone: '',
+  contactWhatsapp: '',
+  contactTelegram: '',
+  externalUrl: '',
+
+  visibility: 'public',
+  allowComments: true,
+  allowShare: true,
+
   image: '',
-  program: [createEmptyProgramItem()],
+})
+
+const eventId = computed(() => route.params.id || null)
+const isEditMode = computed(() => Boolean(eventId.value))
+const showTypeGate = computed(() => !isEditMode.value && !hasPickedEventType.value)
+
+const activeEventType = computed(() => {
+  return eventTypes.find((type) => type.value === form.eventType) || eventTypes[0]
+})
+
+const activeTypeConfig = computed(() => {
+  return eventTypeConfigs[form.eventType] || eventTypeConfigs.event
+})
+
+const pageTitle = computed(() => {
+  if (isEventNotFound.value) return 'Событие не найдено'
+  if (showTypeGate.value) return 'Создать публикацию'
+  return isEditMode.value ? 'Редактировать событие' : `Создать: ${activeEventType.value.label}`
+})
+
+const pageSubtitle = computed(() => {
+  if (isEventNotFound.value) return 'Проверь ссылку или создай новое событие'
+  if (showTypeGate.value) return 'Сначала выбери формат: мероприятие, встреча, анонс, активность или план'
+
+  return isEditMode.value
+    ? 'Обнови данные городской публикации в Qala'
+    : activeTypeConfig.value.helper
+})
+
+const submitButtonText = computed(() => {
+  if (isSubmitting.value) return isEditMode.value ? 'Сохраняем...' : 'Публикуем...'
+  return isEditMode.value ? 'Сохранить изменения' : 'Опубликовать'
+})
+
+const submitButtonIcon = computed(() => {
+  if (isSubmitting.value) return 'bi bi-arrow-repeat'
+  return isEditMode.value ? 'bi bi-check-circle' : 'bi bi-plus-circle'
+})
+
+const successMessage = computed(() => {
+  return isEditMode.value ? 'Изменения сохранены' : 'Публикация подготовлена к размещению'
 })
 
 const locationSearchQuery = computed(() => {
@@ -965,90 +1417,110 @@ const hasSelectedLocation = computed(() => {
 })
 
 const previewDay = computed(() => {
-  if (!form.date) {
-    return '--'
-  }
-
+  if (!form.date) return '--'
   return String(new Date(form.date).getDate()).padStart(2, '0')
 })
 
 const previewMonth = computed(() => {
-  if (!form.date) {
-    return 'ДАТА'
-  }
-
+  if (!form.date) return 'ДАТА'
   return months[new Date(form.date).getMonth()]
 })
 
 const previewProgram = computed(() => {
-  if (!form.hasProgram || !activeTypeConfig.value.showProgram) {
-    return []
-  }
-
+  if (!form.hasProgram || !activeTypeConfig.value.showProgram) return []
   return form.program.filter((item) => item.time || item.title || item.description)
 })
 
+const previewPolls = computed(() => {
+  if (!form.hasPoll || !activeTypeConfig.value.showPolls) return []
+
+  return form.polls
+    .map((poll) => ({
+      ...poll,
+      options: poll.options.filter((option) => option.text),
+    }))
+    .filter((poll) => poll.question || poll.options.length)
+})
+
 const previewPrice = computed(() => {
-  if (form.visitType === 'free') {
-    return 'Бесплатно'
-  }
-
-  if (!form.price || Number(form.price) < 1) {
-    return 'Цена не указана'
-  }
-
+  if (form.visitType === 'free') return 'Бесплатно'
+  if (!form.price || Number(form.price) < 1) return 'Цена не указана'
   return `${Number(form.price).toLocaleString('ru-RU')} ₸`
 })
 
-const normalizeDate = (value) => {
-  if (!value) {
-    return ''
-  }
-
-  return String(value).slice(0, 10)
-}
-
-const normalizeTime = (value) => {
-  if (!value) {
-    return ''
-  }
-
-  return String(value).slice(0, 5)
-}
+const previewLanguage = computed(() => {
+  return languages.find((item) => item.value === form.language)?.label || 'Русский'
+})
 
 const toNullableNumber = (value) => {
-  if (value === null || value === undefined || value === '') {
-    return null
-  }
+  if (value === null || value === undefined || value === '') return null
 
   const number = Number(value)
   return Number.isFinite(number) ? number : null
 }
 
-const resetProgramIfHidden = () => {
-  if (!activeTypeConfig.value.showProgram) {
-    form.hasProgram = false
-  }
+const normalizeDate = (value) => {
+  return value ? String(value).slice(0, 10) : ''
 }
 
-const resetPaymentIfHidden = () => {
-  if (!activeTypeConfig.value.showVisitType) {
-    form.visitType = 'free'
-    form.price = ''
+const normalizeTime = (value) => {
+  return value ? String(value).slice(0, 5) : ''
+}
+
+const normalizeDateTimeLocal = (value) => {
+  if (!value) return ''
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const pad = (number) => String(number).padStart(2, '0')
+
+  return [
+    date.getFullYear(),
+    '-',
+    pad(date.getMonth() + 1),
+    '-',
+    pad(date.getDate()),
+    'T',
+    pad(date.getHours()),
+    ':',
+    pad(date.getMinutes()),
+  ].join('')
+}
+
+const clearTypeSpecificFields = () => {
+  const config = activeTypeConfig.value
+
+  if (!config.showCover && form.image?.startsWith('blob:')) {
+    URL.revokeObjectURL(form.image)
+  }
+
+  if (!config.showCover) form.image = ''
+  if (!config.showProgram) form.hasProgram = false
+  if (!config.showVisitType) form.visitType = 'free'
+  if (!config.showPrice) form.price = ''
+  if (!config.showLimit) form.limit = ''
+  if (!config.showDuration) form.durationMinutes = ''
+  if (!config.showAgeLimit) form.ageLimit = ''
+  if (!config.showPolls) form.hasPoll = false
+  if (!config.showRegistrationQuestions) form.hasRegistrationQuestions = false
+
+  if (!config.showRegistration) {
+    form.registrationRequired = false
+    form.registrationDeadline = ''
+    form.accessType = 'open'
+    form.allowWaitlist = false
   }
 }
 
 const setEventType = (type) => {
-  if (!eventTypeConfigs[type]) {
-    return
-  }
+  if (!eventTypeConfigs[type]) return
 
   form.eventType = type
   errors.location = ''
   errors.submit = ''
 
-  resetProgramIfHidden()
-  resetPaymentIfHidden()
+  clearTypeSpecificFields()
 }
 
 const chooseEventType = (type) => {
@@ -1135,36 +1607,106 @@ const validateLocation = () => {
   return true
 }
 
-const validateTypeFields = () => {
-  const required = activeTypeConfig.value.required
+const validateProgram = () => {
+  if (!activeTypeConfig.value.showProgram || !form.hasProgram) return true
 
-  if (required.date && !form.date) {
+  const items = form.program.filter((item) => item.time || item.title || item.description)
+
+  if (!items.length) {
+    errors.submit = 'Добавьте хотя бы один пункт программы'
+    return false
+  }
+
+  if (items.some((item) => !String(item.title || '').trim())) {
+    errors.submit = 'У каждого пункта программы должно быть название'
+    return false
+  }
+
+  return true
+}
+
+const validatePolls = () => {
+  if (!activeTypeConfig.value.showPolls || !form.hasPoll) return true
+
+  const polls = form.polls.filter((poll) => poll.question || poll.options.some((option) => option.text))
+
+  if (!polls.length) {
+    errors.submit = 'Добавьте хотя бы один опрос'
+    return false
+  }
+
+  for (const poll of polls) {
+    if (!String(poll.question || '').trim()) {
+      errors.submit = 'У опроса должен быть вопрос'
+      return false
+    }
+
+    if (poll.options.filter((option) => String(option.text || '').trim()).length < 2) {
+      errors.submit = 'В опросе должно быть минимум 2 варианта'
+      return false
+    }
+  }
+
+  return true
+}
+
+const validateRegistrationQuestions = () => {
+  if (!activeTypeConfig.value.showRegistrationQuestions || !form.hasRegistrationQuestions) {
+    return true
+  }
+
+  const questions = form.registrationQuestions.filter((item) => item.question)
+
+  for (const question of questions) {
+    if (!String(question.question || '').trim()) {
+      errors.submit = 'У вопроса при записи должен быть текст'
+      return false
+    }
+
+    if (
+      ['select', 'checkbox'].includes(question.inputType) &&
+      question.options.filter((option) => String(option.text || '').trim()).length < 1
+    ) {
+      errors.submit = 'Для выбора или чекбокса добавьте варианты ответа'
+      return false
+    }
+  }
+
+  return true
+}
+
+const validateTypeFields = () => {
+  if (!form.date) {
     errors.submit = 'Укажите дату'
     return false
   }
 
-  if (required.time && !form.time) {
+  if (!form.time) {
     errors.submit = 'Укажите время'
     return false
   }
 
-  if (!validateLocation()) {
-    return false
-  }
+  if (!validateLocation()) return false
 
-  if (activeTypeConfig.value.showPrice && form.visitType === 'paid' && Number(form.price) < 1) {
+  if (
+    activeTypeConfig.value.showPrice &&
+    form.visitType === 'paid' &&
+    Number(form.price) < 1
+  ) {
     errors.submit = 'Укажите корректную цену'
     return false
   }
+
+  if (!validateProgram()) return false
+  if (!validatePolls()) return false
+  if (!validateRegistrationQuestions()) return false
 
   errors.submit = ''
   return true
 }
 
 const toggleProgram = () => {
-  if (!activeTypeConfig.value.showProgram) {
-    return
-  }
+  if (!activeTypeConfig.value.showProgram) return
 
   form.hasProgram = !form.hasProgram
 
@@ -1174,9 +1716,7 @@ const toggleProgram = () => {
 }
 
 const setVisitType = (type) => {
-  if (!activeTypeConfig.value.showVisitType) {
-    return
-  }
+  if (!activeTypeConfig.value.showVisitType) return
 
   form.visitType = type
 
@@ -1185,12 +1725,30 @@ const setVisitType = (type) => {
   }
 }
 
+const togglePoll = () => {
+  if (!activeTypeConfig.value.showPolls) return
+
+  form.hasPoll = !form.hasPoll
+
+  if (form.hasPoll && !form.polls.length) {
+    form.polls = [createEmptyPoll()]
+  }
+}
+
+const toggleRegistrationQuestions = () => {
+  if (!activeTypeConfig.value.showRegistrationQuestions) return
+
+  form.hasRegistrationQuestions = !form.hasRegistrationQuestions
+
+  if (form.hasRegistrationQuestions && !form.registrationQuestions.length) {
+    form.registrationQuestions = [createEmptyRegistrationQuestion()]
+  }
+}
+
 const handleImageUpload = (event) => {
   const file = event.target.files?.[0]
 
-  if (!file) {
-    return
-  }
+  if (!file) return
 
   if (form.image && form.image.startsWith('blob:')) {
     URL.revokeObjectURL(form.image)
@@ -1215,12 +1773,60 @@ const removeProgramItem = (index) => {
 const moveProgramItem = (index, direction) => {
   const targetIndex = index + direction
 
-  if (targetIndex < 0 || targetIndex >= form.program.length) {
-    return
-  }
+  if (targetIndex < 0 || targetIndex >= form.program.length) return
 
   const [item] = form.program.splice(index, 1)
   form.program.splice(targetIndex, 0, item)
+}
+
+const addPoll = () => {
+  form.polls.push(createEmptyPoll())
+}
+
+const removePoll = (index) => {
+  if (form.polls.length === 1) {
+    form.polls[0] = createEmptyPoll()
+    return
+  }
+
+  form.polls.splice(index, 1)
+}
+
+const addPollOption = (pollIndex) => {
+  form.polls[pollIndex]?.options.push(createPollOption())
+}
+
+const removePollOption = (pollIndex, optionIndex) => {
+  const options = form.polls[pollIndex]?.options
+
+  if (!options || options.length <= 2) return
+
+  options.splice(optionIndex, 1)
+}
+
+const addRegistrationQuestion = () => {
+  form.registrationQuestions.push(createEmptyRegistrationQuestion())
+}
+
+const removeRegistrationQuestion = (index) => {
+  if (form.registrationQuestions.length === 1) {
+    form.registrationQuestions[0] = createEmptyRegistrationQuestion()
+    return
+  }
+
+  form.registrationQuestions.splice(index, 1)
+}
+
+const addRegistrationOption = (questionIndex) => {
+  form.registrationQuestions[questionIndex]?.options.push(createRegistrationOption())
+}
+
+const removeRegistrationOption = (questionIndex, optionIndex) => {
+  const options = form.registrationQuestions[questionIndex]?.options
+
+  if (!options || options.length <= 1) return
+
+  options.splice(optionIndex, 1)
 }
 
 const resetCategoryFields = () => {
@@ -1252,17 +1858,48 @@ const resetForm = () => {
 
   form.eventType = currentType
   form.title = ''
+
   resetCategoryFields()
+
   form.date = ''
   form.time = ''
+  form.durationMinutes = ''
+  form.ageLimit = ''
+  form.language = 'ru'
+
   resetLocationFields()
+
   form.description = ''
   form.hasProgram = false
+  form.program = [createEmptyProgramItem()]
+
   form.visitType = 'free'
   form.price = ''
   form.limit = ''
+
+  form.registrationRequired = activeTypeConfig.value.showRegistration
+  form.registrationDeadline = ''
+  form.accessType = 'open'
+  form.allowWaitlist = false
+
+  form.hasPoll = false
+  form.polls = [createEmptyPoll()]
+
+  form.hasRegistrationQuestions = false
+  form.registrationQuestions = [createEmptyRegistrationQuestion()]
+
+  form.contactPhone = ''
+  form.contactWhatsapp = ''
+  form.contactTelegram = ''
+  form.externalUrl = ''
+
+  form.visibility = 'public'
+  form.allowComments = true
+  form.allowShare = true
+
   form.image = ''
-  form.program = [createEmptyProgramItem()]
+
+  clearTypeSpecificFields()
 
   errors.category = ''
   errors.location = ''
@@ -1276,28 +1913,69 @@ const fillTestData = () => {
     URL.revokeObjectURL(form.image)
   }
 
-  if (form.eventType === 'meeting') {
-    form.title = 'Кофе и знакомство в центре'
-    form.description = 'Небольшая встреча для знакомства, общения и обсуждения городских проектов.'
-    form.limit = 12
-  } else if (form.eventType === 'announcement') {
-    form.title = 'Открытие нового пространства'
-    form.description = 'В городе открывается новое общественное пространство для встреч, обучения и небольших событий.'
-    form.limit = ''
-  } else if (form.eventType === 'activity') {
-    form.title = 'Утренняя прогулка в парке'
-    form.description = 'Собираемся на лёгкую прогулку, общение и заряд бодрости.'
-    form.limit = 20
-  } else if (form.eventType === 'plan') {
-    form.title = 'Кто хочет сходить на футбол?'
-    form.description = 'Проверяем интерес. Если соберётся достаточно людей, выберем дату, время и формат.'
-    form.limit = 10
-  } else {
-    form.title = 'Frontend Meetup Karaganda'
-    form.description =
-      'Встреча frontend-разработчиков, дизайнеров и продуктовых специалистов. Обсудим Vue, UX, производительность интерфейсов и реальные кейсы разработки городских сервисов.'
-    form.limit = 120
+  const testByType = {
+    event: {
+      title: 'Frontend Meetup Karaganda',
+      description:
+        'Встреча frontend-разработчиков, дизайнеров и продуктовых специалистов. Обсудим Vue, UX, производительность интерфейсов и реальные кейсы разработки городских сервисов.',
+      limit: 120,
+      durationMinutes: 150,
+      ageLimit: '16+',
+      hasProgram: true,
+      hasRegistrationQuestions: true,
+      hasPoll: false,
+    },
+    meeting: {
+      title: 'Кофе и знакомство в центре',
+      description: 'Небольшая встреча для знакомства, общения и обсуждения городских проектов.',
+      limit: 12,
+      durationMinutes: 90,
+      ageLimit: '',
+      hasProgram: false,
+      hasRegistrationQuestions: false,
+      hasPoll: false,
+    },
+    announcement: {
+      title: 'Открытие нового пространства',
+      description:
+        'В городе открывается новое общественное пространство для встреч, обучения и небольших событий.',
+      limit: '',
+      durationMinutes: '',
+      ageLimit: '',
+      hasProgram: false,
+      hasRegistrationQuestions: false,
+      hasPoll: false,
+    },
+    activity: {
+      title: 'Утренняя прогулка в парке',
+      description: 'Собираемся на лёгкую прогулку, общение и заряд бодрости. Возьмите удобную обувь и воду.',
+      limit: 20,
+      durationMinutes: 60,
+      ageLimit: '12+',
+      hasProgram: false,
+      hasRegistrationQuestions: true,
+      hasPoll: false,
+    },
+    plan: {
+      title: 'Кто хочет сходить на футбол?',
+      description: 'Проверяем интерес. Если соберётся достаточно людей, выберем дату, место и формат.',
+      limit: 10,
+      durationMinutes: '',
+      ageLimit: '',
+      hasProgram: false,
+      hasRegistrationQuestions: false,
+      hasPoll: true,
+    },
   }
+
+  const data = testByType[form.eventType] || testByType.event
+
+  form.title = data.title
+  form.description = data.description
+  form.limit = data.limit
+  form.durationMinutes = data.durationMinutes
+  form.ageLimit = data.ageLimit
+  form.language = 'ru'
 
   resetCategoryFields()
 
@@ -1310,9 +1988,28 @@ const fillTestData = () => {
   form.lat = 49.8047
   form.lng = 73.1094
 
-  form.hasProgram = form.eventType === 'event'
+  form.hasProgram = activeTypeConfig.value.showProgram && data.hasProgram
+  form.hasPoll = activeTypeConfig.value.showPolls && data.hasPoll
+  form.hasRegistrationQuestions =
+    activeTypeConfig.value.showRegistrationQuestions && data.hasRegistrationQuestions
+
   form.visitType = activeTypeConfig.value.showVisitType ? 'paid' : 'free'
   form.price = form.visitType === 'paid' ? 3000 : ''
+
+  form.registrationRequired = activeTypeConfig.value.showRegistration
+  form.registrationDeadline = ''
+  form.accessType = 'open'
+  form.allowWaitlist = true
+
+  form.contactPhone = '+77000000000'
+  form.contactWhatsapp = '+77000000000'
+  form.contactTelegram = '@qala'
+  form.externalUrl = 'https://example.com'
+
+  form.visibility = 'public'
+  form.allowComments = true
+  form.allowShare = true
+
   form.image = activeTypeConfig.value.showCover
     ? 'https://images.unsplash.com/photo-1515187029135-18ee286d815b?q=80&w=1400&auto=format&fit=crop'
     : ''
@@ -1340,6 +2037,40 @@ const fillTestData = () => {
       ]
     : [createEmptyProgramItem()]
 
+  form.polls = form.hasPoll
+    ? [
+        {
+          id: pollId++,
+          question: 'Какой формат вам удобнее?',
+          pollType: 'single',
+          options: [
+            createPollOption('Сходить вместе'),
+            createPollOption('Сначала обсудить детали'),
+            createPollOption('Выбрать другую дату'),
+          ],
+        },
+      ]
+    : [createEmptyPoll()]
+
+  form.registrationQuestions = form.hasRegistrationQuestions
+    ? [
+        {
+          id: questionId++,
+          question: 'Сколько человек будет с вами?',
+          inputType: 'number',
+          isRequired: true,
+          options: [createRegistrationOption()],
+        },
+        {
+          id: questionId++,
+          question: 'Есть ли пожелания?',
+          inputType: 'textarea',
+          isRequired: false,
+          options: [createRegistrationOption()],
+        },
+      ]
+    : [createEmptyRegistrationQuestion()]
+
   errors.category = ''
   errors.location = ''
   errors.submit = ''
@@ -1347,23 +2078,53 @@ const fillTestData = () => {
   isEventNotFound.value = false
 }
 
-const buildEventPayload = () => {
-  const canUseProgram = activeTypeConfig.value.showProgram && form.hasProgram
+const buildProgramPayload = () => {
+  if (!activeTypeConfig.value.showProgram || !form.hasProgram) return []
 
-  const program = canUseProgram
-    ? form.program
-        .filter((item) => item.time || item.title || item.description)
-        .map(({ time, title, description }) => ({
-          time,
-          title,
-          description,
-        }))
-    : []
+  return form.program
+    .filter((item) => item.time || item.title || item.description)
+    .map(({ time, title, description }) => ({
+      time,
+      title,
+      description,
+    }))
+}
+
+const buildPollsPayload = () => {
+  if (!activeTypeConfig.value.showPolls || !form.hasPoll) return []
+
+  return form.polls
+    .map((poll) => ({
+      question: poll.question.trim(),
+      pollType: poll.pollType,
+      options: poll.options.map((option) => option.text.trim()).filter(Boolean),
+    }))
+    .filter((poll) => poll.question || poll.options.length)
+}
+
+const buildRegistrationQuestionsPayload = () => {
+  if (!activeTypeConfig.value.showRegistrationQuestions || !form.hasRegistrationQuestions) {
+    return []
+  }
+
+  return form.registrationQuestions
+    .map((question) => ({
+      question: question.question.trim(),
+      inputType: question.inputType,
+      isRequired: question.isRequired,
+      options: question.options.map((option) => option.text.trim()).filter(Boolean),
+    }))
+    .filter((question) => question.question)
+}
+
+const buildEventPayload = () => {
+  const config = activeTypeConfig.value
 
   return {
     eventType: form.eventType,
 
     title: form.title.trim(),
+    description: form.description.trim(),
 
     category: form.category,
     categoryId: form.categoryId,
@@ -1376,21 +2137,45 @@ const buildEventPayload = () => {
     date: form.date || null,
     time: form.time || null,
 
+    durationMinutes: config.showDuration && form.durationMinutes ? Number(form.durationMinutes) : null,
+    ageLimit: config.showAgeLimit ? form.ageLimit || null : null,
+    language: form.language,
+
     location: form.location.trim(),
     address: form.address.trim(),
     locationUrl: form.locationUrl.trim(),
     lat: toNullableNumber(form.lat),
     lng: toNullableNumber(form.lng),
 
-    description: form.description.trim(),
+    visitType: config.showVisitType ? form.visitType : 'free',
+    price: config.showPrice && form.visitType === 'paid' ? Number(form.price) : null,
+    limit: config.showLimit && form.limit ? Number(form.limit) : null,
 
-    hasProgram: canUseProgram,
-    visitType: activeTypeConfig.value.showVisitType ? form.visitType : 'free',
-    price: activeTypeConfig.value.showPrice && form.visitType === 'paid' ? Number(form.price) : 0,
-    limit: activeTypeConfig.value.showLimit && form.limit ? Number(form.limit) : null,
+    registrationRequired: config.showRegistration ? form.registrationRequired : false,
+    registrationDeadline:
+      config.showRegistration && form.registrationDeadline
+        ? form.registrationDeadline
+        : null,
 
-    image: activeTypeConfig.value.showCover ? form.image : '',
-    program,
+    accessType: config.showRegistration ? form.accessType : 'open',
+    allowWaitlist: config.showRegistration ? form.allowWaitlist : false,
+
+    contactPhone: config.showContacts ? form.contactPhone.trim() || null : null,
+    contactWhatsapp: config.showContacts ? form.contactWhatsapp.trim() || null : null,
+    contactTelegram: config.showContacts ? form.contactTelegram.trim() || null : null,
+    externalUrl: config.showContacts ? form.externalUrl.trim() || null : null,
+
+    visibility: form.visibility,
+    allowComments: form.allowComments,
+    allowShare: form.allowShare,
+
+    image: config.showCover ? form.image : '',
+
+    hasProgram: config.showProgram && form.hasProgram,
+    program: buildProgramPayload(),
+
+    polls: buildPollsPayload(),
+    registrationQuestions: buildRegistrationQuestionsPayload(),
   }
 }
 
@@ -1407,10 +2192,10 @@ const requestJson = async (url, options = {}) => {
   const data = await response.json().catch(() => null)
 
   if (!response.ok || data?.status === false) {
-    const error = new Error(data?.message || 'Ошибка запроса')
-    error.response = data
-    error.status = response.status
-    throw error
+    const err = new Error(data?.message || 'Ошибка запроса')
+    err.response = data
+    err.status = response.status
+    throw err
   }
 
   return data
@@ -1427,17 +2212,17 @@ const saveEventRequest = async (payload) => {
     ? `${API_URL}/event/update/${eventId.value}`
     : `${API_URL}/event/create`
 
-  const method = isEditMode.value ? 'PUT' : 'POST'
-
   return requestJson(url, {
-    method,
+    method: isEditMode.value ? 'PUT' : 'POST',
     body: JSON.stringify(payload),
   })
 }
 
 const fillFormFromEvent = (eventData) => {
   const event = eventData?.event || eventData
-  const program = eventData?.program || event?.program || []
+  const program = eventData?.program || eventData?.event_program_items || event?.program || []
+  const polls = eventData?.polls || []
+  const registrationQuestions = eventData?.registration_questions || eventData?.registrationQuestions || []
 
   if (!event) {
     throw new Error('Событие не найдено')
@@ -1451,6 +2236,7 @@ const fillFormFromEvent = (eventData) => {
   hasPickedEventType.value = true
 
   form.title = event.title || ''
+  form.description = event.description || ''
 
   form.category = event.category_name || event.category || ''
   form.categoryId = event.category_id || event.categoryId || null
@@ -1465,21 +2251,39 @@ const fillFormFromEvent = (eventData) => {
   form.date = normalizeDate(event.event_date || event.date)
   form.time = normalizeTime(event.event_time || event.time)
 
+  form.durationMinutes = event.duration_minutes || event.durationMinutes || ''
+  form.ageLimit = event.age_limit || event.ageLimit || ''
+  form.language = event.language || 'ru'
+
   form.location = event.location_title || event.location || ''
   form.address = event.address || ''
   form.locationUrl = event.location_url || event.locationUrl || ''
   form.lat = toNullableNumber(event.lat)
   form.lng = toNullableNumber(event.lng)
 
-  form.description = event.description || ''
-  form.hasProgram = Boolean(event.has_program ?? event.hasProgram)
-
   form.visitType = event.visit_type || event.visitType || 'free'
   form.price = form.visitType === 'paid' ? Number(event.price || 0) : ''
   form.limit = event.participants_limit || event.limit || ''
 
+  form.registrationRequired = Boolean(event.registration_required ?? event.registrationRequired)
+  form.registrationDeadline = normalizeDateTimeLocal(
+    event.registration_deadline || event.registrationDeadline
+  )
+  form.accessType = event.access_type || event.accessType || 'open'
+  form.allowWaitlist = Boolean(event.allow_waitlist ?? event.allowWaitlist)
+
+  form.contactPhone = event.contact_phone || event.contactPhone || ''
+  form.contactWhatsapp = event.contact_whatsapp || event.contactWhatsapp || ''
+  form.contactTelegram = event.contact_telegram || event.contactTelegram || ''
+  form.externalUrl = event.external_url || event.externalUrl || ''
+
+  form.visibility = event.visibility || 'public'
+  form.allowComments = Boolean(event.allow_comments ?? event.allowComments ?? true)
+  form.allowShare = Boolean(event.allow_share ?? event.allowShare ?? true)
+
   form.image = event.image_url || event.image || ''
 
+  form.hasProgram = Boolean(event.has_program ?? event.hasProgram)
   form.program = Array.isArray(program) && program.length
     ? program.map((item) => ({
         id: programId++,
@@ -1489,8 +2293,36 @@ const fillFormFromEvent = (eventData) => {
       }))
     : [createEmptyProgramItem()]
 
-  resetProgramIfHidden()
-  resetPaymentIfHidden()
+  form.hasPoll = Array.isArray(polls) && polls.length > 0
+  form.polls = form.hasPoll
+    ? polls.map((poll) => ({
+        id: pollId++,
+        question: poll.question || '',
+        pollType: poll.poll_type || poll.pollType || 'single',
+        options: Array.isArray(poll.options) && poll.options.length
+          ? poll.options.map((option) =>
+              createPollOption(option.option_text || option.text || '')
+            )
+          : [createPollOption(), createPollOption()],
+      }))
+    : [createEmptyPoll()]
+
+  form.hasRegistrationQuestions =
+    Array.isArray(registrationQuestions) && registrationQuestions.length > 0
+
+  form.registrationQuestions = form.hasRegistrationQuestions
+    ? registrationQuestions.map((item) => ({
+        id: questionId++,
+        question: item.question || '',
+        inputType: item.input_type || item.inputType || 'text',
+        isRequired: Boolean(item.is_required ?? item.isRequired),
+        options: Array.isArray(item.options) && item.options.length
+          ? item.options.map((option) => createRegistrationOption(option))
+          : [createRegistrationOption()],
+      }))
+    : [createEmptyRegistrationQuestion()]
+
+  clearTypeSpecificFields()
 
   errors.category = ''
   errors.location = ''
@@ -1539,9 +2371,7 @@ const loadEventForEdit = async () => {
 }
 
 const openDeleteModal = () => {
-  if (!isEditMode.value || !eventId.value || isEventNotFound.value) {
-    return
-  }
+  if (!isEditMode.value || !eventId.value || isEventNotFound.value) return
 
   errors.submit = ''
   isDeleteModalOpen.value = true
@@ -1553,19 +2383,13 @@ const handleEventDeleted = () => {
 }
 
 const submitEvent = async () => {
-  if (isSubmitting.value || isEventNotFound.value) {
-    return
-  }
+  if (isSubmitting.value || isEventNotFound.value) return
 
   errors.submit = ''
 
-  if (!validateCategory() || !validateTypeFields()) {
-    return
-  }
+  if (!validateCategory() || !validateTypeFields()) return
 
   const payload = buildEventPayload()
-
-  console.log('Saved event:', payload)
 
   try {
     isSubmitting.value = true
@@ -1589,6 +2413,12 @@ const submitEvent = async () => {
 
 onMounted(() => {
   loadEventForEdit()
+})
+
+onBeforeUnmount(() => {
+  if (form.image && form.image.startsWith('blob:')) {
+    URL.revokeObjectURL(form.image)
+  }
 })
 
 watch(
@@ -1644,7 +2474,9 @@ watch(
 .qala-preview-program h4,
 .qala-preview-program-content p,
 .qala-type-gate-head h2,
-.qala-type-gate-head p {
+.qala-type-gate-head p,
+.qala-section-title h3,
+.qala-section-title p {
   margin: 0;
 }
 
@@ -1776,7 +2608,8 @@ watch(
 .qala-program-item,
 .qala-form-group,
 .qala-preview-body,
-.qala-preview-actions {
+.qala-preview-actions,
+.qala-inner-section {
   display: grid;
 }
 
@@ -1784,11 +2617,35 @@ watch(
   gap: 24px;
 }
 
-.qala-form-section {
+.qala-form-section,
+.qala-inner-section {
   gap: 17px;
 }
 
+.qala-inner-section {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--bg);
+}
+
+.qala-section-title h3 {
+  color: var(--c);
+  font-size: 17px;
+  font-weight: 950;
+  letter-spacing: -0.035em;
+}
+
+.qala-section-title p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 .qala-form-group {
+  display: grid;
   gap: 8px;
 }
 
@@ -1820,14 +2677,16 @@ watch(
 .qala-program-remove,
 .qala-preview-empty,
 .qala-preview-date,
-.qala-preview-program-time {
+.qala-preview-program-time,
+.qala-mini-danger {
   display: grid;
   place-items: center;
 }
 
 .qala-create-close,
 .qala-program-action-btn,
-.qala-program-remove {
+.qala-program-remove,
+.qala-mini-danger {
   flex-shrink: 0;
   border: 1px solid var(--line);
   border-radius: var(--pill);
@@ -1913,7 +2772,8 @@ watch(
 
 .qala-required,
 .qala-field-hint.error,
-.qala-program-remove {
+.qala-program-remove,
+.qala-mini-danger {
   color: var(--danger);
 }
 
@@ -2148,7 +3008,8 @@ watch(
 }
 
 .qala-program-item-top strong,
-.qala-preview-program-content strong {
+.qala-preview-program-content strong,
+.qala-preview-poll strong {
   color: var(--c);
   font-size: 13px;
   font-weight: 900;
@@ -2160,7 +3021,8 @@ watch(
 }
 
 .qala-program-action-btn,
-.qala-program-remove {
+.qala-program-remove,
+.qala-mini-danger {
   width: 34px;
   height: 34px;
   transition: background var(--tr), border-color var(--tr), color var(--tr), opacity var(--tr);
@@ -2175,14 +3037,16 @@ watch(
   border-color: #dcdcdc;
 }
 
-.qala-program-action-btn:disabled {
+.qala-program-action-btn:disabled,
+.qala-mini-danger:disabled {
   color: #c5c5c5;
   background: #f8f8f8;
   cursor: not-allowed;
   opacity: 0.7;
 }
 
-.qala-program-remove:hover {
+.qala-program-remove:hover,
+.qala-mini-danger:hover:not(:disabled) {
   background: #fff1f2;
   border-color: #fecdd3;
 }
@@ -2206,6 +3070,60 @@ watch(
 
 .qala-program-add:hover {
   border-color: #cfcfcf;
+}
+
+.qala-inline-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 8px;
+  align-items: center;
+}
+
+.qala-switch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.qala-switch-card {
+  min-height: 64px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--bg2);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.qala-switch-card.compact {
+  min-height: 46px;
+  align-items: center;
+}
+
+.qala-switch-card input {
+  margin-top: 3px;
+  accent-color: var(--c);
+}
+
+.qala-switch-card strong,
+.qala-switch-card small {
+  display: block;
+}
+
+.qala-switch-card strong {
+  color: var(--c);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.qala-switch-card small {
+  margin-top: 3px;
+  color: var(--soft);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .qala-preview-section {
@@ -2389,7 +3307,8 @@ watch(
   gap: 10px;
 }
 
-.qala-preview-program-item + .qala-preview-program-item {
+.qala-preview-program-item + .qala-preview-program-item,
+.qala-preview-poll + .qala-preview-poll {
   margin-top: 12px;
 }
 
@@ -2413,6 +3332,23 @@ watch(
   font-size: 12px;
   font-weight: 600;
   line-height: 1.4;
+}
+
+.qala-preview-poll-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.qala-preview-poll-options span {
+  min-height: 28px;
+  padding: 6px 10px;
+  border-radius: var(--pill);
+  background: var(--bg3);
+  color: #555;
+  font-size: 12px;
+  font-weight: 750;
 }
 
 .qala-preview-actions {
@@ -2615,7 +3551,10 @@ watch(
     font-size: 28px;
   }
 
-  .qala-event-type-grid {
+  .qala-event-type-grid,
+  .qala-create-card,
+  .qala-form-row,
+  .qala-switch-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2625,7 +3564,6 @@ watch(
   }
 
   .qala-create-card {
-    grid-template-columns: 1fr;
     gap: 20px;
   }
 
@@ -2641,10 +3579,6 @@ watch(
     height: auto;
     aspect-ratio: 4 / 3;
     border-radius: 22px;
-  }
-
-  .qala-form-row {
-    grid-template-columns: 1fr;
   }
 
   .qala-current-type,
@@ -2689,6 +3623,16 @@ watch(
     height: 38px;
     border-radius: 14px;
   }
+
+  .qala-inline-option {
+    grid-template-columns: 1fr;
+  }
+
+  .qala-mini-danger {
+    width: 100%;
+    height: 38px;
+    border-radius: 14px;
+  }
 }
 
 @media (max-width: 420px) {
@@ -2699,16 +3643,10 @@ watch(
 
   .qala-preview-body {
     grid-template-columns: 48px minmax(0, 1fr);
-    gap: 10px;
   }
 
   .qala-preview-date {
     width: 48px;
-    height: 52px;
-  }
-
-  .qala-preview-program-item {
-    grid-template-columns: 54px minmax(0, 1fr);
   }
 }
 </style>

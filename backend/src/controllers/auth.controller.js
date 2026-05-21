@@ -4,6 +4,8 @@ import crypto from 'node:crypto'
 
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { createCache } from 'cache-manager'
+import { z } from 'zod'
 
 import db from '../db/knex.js'
 import { success, error } from '../utils/response.js'
@@ -12,7 +14,47 @@ const ACCESS_COOKIE_NAME = 'qala_access_token'
 const REFRESH_COOKIE_NAME = 'qala_refresh_token'
 
 const ACCESS_TOKEN_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m'
+const ACCESS_COOKIE_MAX_AGE_MS = Number(
+  process.env.JWT_ACCESS_COOKIE_MS || 15 * 60 * 1000
+)
+
 const REFRESH_TOKEN_DAYS = Number(process.env.JWT_REFRESH_DAYS || 30)
+const REFRESH_COOKIE_MAX_AGE_MS =
+  REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000
+
+const CHECK_FIELD_CACHE_TTL_MS = Number(
+  process.env.CHECK_FIELD_CACHE_TTL_MS || 15 * 1000
+)
+
+const authCache = createCache({
+  ttl: CHECK_FIELD_CACHE_TTL_MS,
+})
+
+const refreshLocks = new Map()
+
+const registerSchema = z.object({
+  phone: z.string().trim().min(3).max(32),
+  email: z
+    .string()
+    .trim()
+    .email()
+    .max(120)
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  nickname: z.string().trim().min(3).max(40),
+  password: z.string().min(6).max(128),
+})
+
+const loginSchema = z.object({
+  login: z.string().trim().min(3).max(120),
+  password: z.string().min(1).max(128),
+})
+
+const checkFieldSchema = z.object({
+  field: z.enum(['phone', 'email', 'nickname']),
+  value: z.string().trim().min(3).max(120),
+})
 
 function requireJwtSecret() {
   if (!process.env.JWT_SECRET) {
@@ -20,6 +62,88 @@ function requireJwtSecret() {
   }
 
   return process.env.JWT_SECRET
+}
+
+function isProduction() {
+  return process.env.NODE_ENV === 'production'
+}
+
+function getCookieSecure() {
+  if (process.env.COOKIE_SECURE === 'true') return true
+  if (process.env.COOKIE_SECURE === 'false') return false
+
+  return isProduction()
+}
+
+function getCookieSameSite() {
+  return process.env.COOKIE_SAME_SITE || 'lax'
+}
+
+function getCookieDomain() {
+  return process.env.COOKIE_DOMAIN || undefined
+}
+
+function getCookieBaseOptions() {
+  const domain = getCookieDomain()
+
+  return {
+    httpOnly: true,
+    secure: getCookieSecure(),
+    sameSite: getCookieSameSite(),
+    ...(domain ? { domain } : {}),
+  }
+}
+
+function getAccessCookieOptions() {
+  return {
+    ...getCookieBaseOptions(),
+    maxAge: ACCESS_COOKIE_MAX_AGE_MS,
+    path: '/',
+  }
+}
+
+function getRefreshCookieOptions() {
+  return {
+    ...getCookieBaseOptions(),
+    maxAge: REFRESH_COOKIE_MAX_AGE_MS,
+    path: '/api',
+  }
+}
+
+function getAccessCookieClearOptions() {
+  const { maxAge, ...options } = getAccessCookieOptions()
+  return options
+}
+
+function getRefreshCookieClearOptions() {
+  const { maxAge, ...options } = getRefreshCookieOptions()
+  return options
+}
+
+function setAccessCookie(res, accessToken) {
+  res.cookie(ACCESS_COOKIE_NAME, accessToken, getAccessCookieOptions())
+}
+
+function setRefreshCookie(res, refreshToken) {
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, getRefreshCookieOptions())
+}
+
+function setAuthCookies(res, accessToken, refreshToken) {
+  setAccessCookie(res, accessToken)
+  setRefreshCookie(res, refreshToken)
+}
+
+function clearAccessCookie(res) {
+  res.clearCookie(ACCESS_COOKIE_NAME, getAccessCookieClearOptions())
+}
+
+function clearRefreshCookie(res) {
+  res.clearCookie(REFRESH_COOKIE_NAME, getRefreshCookieClearOptions())
+}
+
+function clearAuthCookies(res) {
+  clearAccessCookie(res)
+  clearRefreshCookie(res)
 }
 
 function createAccessToken(user) {
@@ -54,6 +178,10 @@ function getRefreshTokenExpiresAt() {
   return expiresAt
 }
 
+function getRefreshTokenFromRequest(req) {
+  return req.cookies?.[REFRESH_COOKIE_NAME] || null
+}
+
 function getClientIp(req) {
   const forwardedFor = req.headers['x-forwarded-for']
 
@@ -64,74 +192,98 @@ function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || null
 }
 
-function getCookieBaseOptions() {
-  const isProduction = process.env.NODE_ENV === 'production'
+function isRefreshExpired(session) {
+  return new Date(session.expires_at).getTime() <= Date.now()
+}
+
+function normalizeEmail(email) {
+  if (!email) return null
+
+  const normalized = String(email).trim().toLowerCase()
+
+  return normalized || null
+}
+
+function normalizeRegisterPayload(body) {
+  const parsed = registerSchema.safeParse(body)
+
+  if (!parsed.success) {
+    return {
+      status: false,
+      message: 'Invalid registration data',
+    }
+  }
 
   return {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax',
+    status: true,
+    data: {
+      phone: parsed.data.phone.trim(),
+      email: normalizeEmail(parsed.data.email),
+      nickname: parsed.data.nickname.trim(),
+      password: parsed.data.password,
+    },
   }
 }
 
-function getAccessCookieOptions() {
+function normalizeLoginPayload(body) {
+  const parsed = loginSchema.safeParse(body)
+
+  if (!parsed.success) {
+    return {
+      status: false,
+      message: 'Invalid login data',
+    }
+  }
+
   return {
-    ...getCookieBaseOptions(),
-    maxAge: 15 * 60 * 1000,
-    path: '/api',
+    status: true,
+    data: {
+      login: parsed.data.login.trim(),
+      password: parsed.data.password,
+    },
   }
 }
 
-function getRefreshCookieOptions() {
+function normalizeCheckFieldPayload(query) {
+  const parsed = checkFieldSchema.safeParse(query)
+
+  if (!parsed.success) {
+    return {
+      status: false,
+      message: 'Invalid field or value',
+    }
+  }
+
+  const field = parsed.data.field
+  const value = field === 'email'
+    ? parsed.data.value.trim().toLowerCase()
+    : parsed.data.value.trim()
+
   return {
-    ...getCookieBaseOptions(),
-    maxAge: REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000,
-    path: '/api/auth',
+    status: true,
+    data: {
+      field,
+      value,
+    },
   }
 }
 
-function setAccessCookie(res, accessToken) {
-  res.cookie(
-    ACCESS_COOKIE_NAME,
-    accessToken,
-    getAccessCookieOptions()
-  )
-}
+async function withRefreshLock(refreshToken, callback) {
+  const activePromise = refreshLocks.get(refreshToken)
 
-function setRefreshCookie(res, refreshToken) {
-  res.cookie(
-    REFRESH_COOKIE_NAME,
-    refreshToken,
-    getRefreshCookieOptions()
-  )
-}
+  if (activePromise) {
+    return activePromise
+  }
 
-function clearAccessCookie(res) {
-  res.clearCookie(ACCESS_COOKIE_NAME, {
-    ...getAccessCookieOptions(),
-    maxAge: undefined,
-  })
-}
+  const promise = Promise.resolve()
+    .then(callback)
+    .finally(() => {
+      refreshLocks.delete(refreshToken)
+    })
 
-function clearRefreshCookie(res) {
-  res.clearCookie(REFRESH_COOKIE_NAME, {
-    ...getRefreshCookieOptions(),
-    maxAge: undefined,
-  })
-}
+  refreshLocks.set(refreshToken, promise)
 
-function setAuthCookies(res, accessToken, refreshToken) {
-  setAccessCookie(res, accessToken)
-  setRefreshCookie(res, refreshToken)
-}
-
-function clearAuthCookies(res) {
-  clearAccessCookie(res)
-  clearRefreshCookie(res)
-}
-
-function getRefreshTokenFromRequest(req) {
-  return req.cookies?.[REFRESH_COOKIE_NAME] || null
+  return promise
 }
 
 async function createUserSession(req, userId, trx = db) {
@@ -185,38 +337,20 @@ async function findSafeUserById(userId, trx = db) {
     .first()
 }
 
-function normalizeRegisterPayload(body) {
-  return {
-    phone: String(body.phone || '').trim(),
-    email: body.email ? String(body.email).trim().toLowerCase() : null,
-    nickname: String(body.nickname || '').trim(),
-    password: String(body.password || ''),
-  }
-}
-
-function normalizeLoginPayload(body) {
-  return {
-    login: String(body.login || '').trim(),
-    password: String(body.password || ''),
-  }
-}
-
 export async function register(req, res, next) {
   try {
+    const normalized = normalizeRegisterPayload(req.body)
+
+    if (!normalized.status) {
+      return error(res, normalized.message, 422)
+    }
+
     const {
       phone,
       email,
       nickname,
       password,
-    } = normalizeRegisterPayload(req.body)
-
-    if (!phone || !nickname || !password) {
-      return error(res, 'Phone, nickname and password are required', 422)
-    }
-
-    if (password.length < 6) {
-      return error(res, 'Password must be at least 6 characters', 422)
-    }
+    } = normalized.data
 
     const existingUser = await db('users')
       .where('phone', phone)
@@ -244,6 +378,10 @@ export async function register(req, res, next) {
 
       const user = await findSafeUserById(userId, trx)
 
+      if (!user) {
+        throw new Error('Failed to create user')
+      }
+
       const accessToken = createAccessToken(user)
       const refreshToken = await createUserSession(req, user.id, trx)
 
@@ -253,6 +391,13 @@ export async function register(req, res, next) {
         refreshToken,
       }
     })
+
+    await authCache.del(`auth_field:phone:${phone}`)
+    await authCache.del(`auth_field:nickname:${nickname}`)
+
+    if (email) {
+      await authCache.del(`auth_field:email:${email}`)
+    }
 
     setAuthCookies(res, result.accessToken, result.refreshToken)
 
@@ -265,20 +410,22 @@ export async function register(req, res, next) {
       201
     )
   } catch (err) {
-    next(err)
+    return next(err)
   }
 }
 
 export async function login(req, res, next) {
   try {
+    const normalized = normalizeLoginPayload(req.body)
+
+    if (!normalized.status) {
+      return error(res, normalized.message, 422)
+    }
+
     const {
       login,
       password,
-    } = normalizeLoginPayload(req.body)
-
-    if (!login || !password) {
-      return error(res, 'Login and password are required', 422)
-    }
+    } = normalized.data
 
     const user = await db('users')
       .where('phone', login)
@@ -305,9 +452,14 @@ export async function login(req, res, next) {
         .where('id', user.id)
         .update({
           last_login_at: trx.fn.now(),
+          updated_at: trx.fn.now(),
         })
 
       const safeUser = await findSafeUserById(user.id, trx)
+
+      if (!safeUser) {
+        throw new Error('User not found after login')
+      }
 
       const accessToken = createAccessToken(safeUser)
       const refreshToken = await createUserSession(req, safeUser.id, trx)
@@ -325,7 +477,7 @@ export async function login(req, res, next) {
       user: result.user,
     })
   } catch (err) {
-    next(err)
+    return next(err)
   }
 }
 
@@ -335,69 +487,100 @@ export async function refresh(req, res, next) {
 
     if (!refreshToken) {
       clearAuthCookies(res)
+
       return error(res, 'Refresh token is missing', 401)
     }
 
-    const refreshTokenHash = hashToken(refreshToken)
+    const result = await withRefreshLock(refreshToken, async () => {
+      const refreshTokenHash = hashToken(refreshToken)
 
-    const session = await db('user_sessions')
-      .where('refresh_token_hash', refreshTokenHash)
-      .first()
+      return db.transaction(async (trx) => {
+        const session = await trx('user_sessions')
+          .where('refresh_token_hash', refreshTokenHash)
+          .first()
 
-    if (!session) {
-      clearAuthCookies(res)
-      return error(res, 'Invalid refresh token', 401)
-    }
+        if (!session) {
+          return {
+            status: false,
+            code: 401,
+            message: 'Invalid refresh token',
+            clearCookies: true,
+          }
+        }
 
-    if (session.revoked_at) {
-      clearAuthCookies(res)
-      return error(res, 'Invalid refresh token', 401)
-    }
+        if (session.revoked_at) {
+          return {
+            status: false,
+            code: 401,
+            message: 'Invalid refresh token',
+            clearCookies: true,
+          }
+        }
 
-    const isExpired = new Date(session.expires_at).getTime() <= Date.now()
+        if (isRefreshExpired(session)) {
+          await revokeSessionById(session.id, trx)
 
-    if (isExpired) {
-      await revokeSessionById(session.id)
+          return {
+            status: false,
+            code: 401,
+            message: 'Refresh token expired',
+            clearCookies: true,
+          }
+        }
 
-      clearAuthCookies(res)
+        const user = await findSafeUserById(session.user_id, trx)
 
-      return error(res, 'Refresh token expired', 401)
-    }
+        if (!user) {
+          await revokeSessionById(session.id, trx)
 
-    const user = await findSafeUserById(session.user_id)
+          return {
+            status: false,
+            code: 401,
+            message: 'User not found',
+            clearCookies: true,
+          }
+        }
 
-    if (!user) {
-      clearAuthCookies(res)
-      return error(res, 'User not found', 401)
-    }
+        if (!user.is_active) {
+          await revokeSessionById(session.id, trx)
 
-    if (!user.is_active) {
-      await revokeSessionById(session.id)
+          return {
+            status: false,
+            code: 403,
+            message: 'User is blocked',
+            clearCookies: true,
+          }
+        }
 
-      clearAuthCookies(res)
+        await revokeSessionById(session.id, trx)
 
-      return error(res, 'User is blocked', 403)
-    }
+        const newRefreshToken = await createUserSession(req, user.id, trx)
+        const newAccessToken = createAccessToken(user)
 
-    const result = await db.transaction(async (trx) => {
-      await revokeSessionById(session.id, trx)
-
-      const newRefreshToken = await createUserSession(req, user.id, trx)
-      const newAccessToken = createAccessToken(user)
-
-      return {
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-      }
+        return {
+          status: true,
+          user,
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+        }
+      })
     })
+
+    if (!result.status) {
+      if (result.clearCookies) {
+        clearAuthCookies(res)
+      }
+
+      return error(res, result.message, result.code)
+    }
 
     setAuthCookies(res, result.accessToken, result.refreshToken)
 
     return success(res, 'Token refreshed successfully', {
-      user,
+      user: result.user,
     })
   } catch (err) {
-    next(err)
+    return next(err)
   }
 }
 
@@ -421,7 +604,7 @@ export async function logout(req, res, next) {
 
     return success(res, 'Logged out successfully')
   } catch (err) {
-    next(err)
+    return next(err)
   }
 }
 
@@ -437,40 +620,46 @@ export async function logoutAll(req, res, next) {
 
     return success(res, 'Logged out from all devices successfully')
   } catch (err) {
-    next(err)
+    return next(err)
   }
 }
 
 export async function checkAuthField(req, res, next) {
   try {
-    const { field, value } = req.query
+    const normalized = normalizeCheckFieldPayload(req.query)
 
-    const allowedFields = ['phone', 'email', 'nickname']
-
-    if (!allowedFields.includes(field)) {
-      return error(res, 'Invalid field', 422)
+    if (!normalized.status) {
+      return error(res, normalized.message, 422)
     }
 
-    if (!value || String(value).trim().length < 3) {
-      return error(res, 'Value is required', 422)
-    }
+    const {
+      field,
+      value,
+    } = normalized.data
 
-    const normalizedValue = field === 'email'
-      ? String(value).trim().toLowerCase()
-      : String(value).trim()
+    const cacheKey = `auth_field:${field}:${value}`
+    const cached = await authCache.get(cacheKey)
+
+    if (cached) {
+      return success(res, 'Field checked', cached)
+    }
 
     const existingUser = await db('users')
       .select('id')
-      .where(field, normalizedValue)
+      .where(field, value)
       .first()
 
-    return success(res, 'Field checked', {
+    const payload = {
       field,
-      value: normalizedValue,
+      value,
       exists: Boolean(existingUser),
       available: !existingUser,
-    })
+    }
+
+    await authCache.set(cacheKey, payload, CHECK_FIELD_CACHE_TTL_MS)
+
+    return success(res, 'Field checked', payload)
   } catch (err) {
-    next(err)
+    return next(err)
   }
 }

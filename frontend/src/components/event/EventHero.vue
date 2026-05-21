@@ -10,7 +10,13 @@
     />
 
     <div v-else class="qala-event-hero-empty">
-      <i class="bi bi-image"></i>
+      <img
+        src="/event.png"
+        :alt="title"
+        class="qala-event-hero-img"
+        loading="eager"
+        decoding="async"
+      />
     </div>
 
     <div class="qala-event-hero-overlay">
@@ -42,7 +48,7 @@ defineProps({
 .qala-event-hero {
   position: relative;
   width: 100%;
-  height: 440px;
+  height: 360px;
   border-radius: 28px;
   background: #f3f4f6;
   overflow: hidden;
@@ -52,17 +58,14 @@ defineProps({
 .qala-event-hero-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
   display: block;
+  object-fit: cover;
+  object-position: center;
 }
 
 .qala-event-hero-empty {
   width: 100%;
   height: 100%;
-  display: grid;
-  place-items: center;
-  color: #b0b0b0;
-  font-size: 42px;
 }
 
 .qala-event-hero-overlay {
@@ -72,6 +75,7 @@ defineProps({
   display: flex;
   align-items: center;
   gap: 10px;
+  z-index: 2;
 }
 
 .qala-event-category {
@@ -101,15 +105,15 @@ defineProps({
 
 @media (min-width: 861px) and (max-width: 1199px) {
   .qala-event-hero {
-    height: 360px;
+    height: 300px;
   }
 }
 
 @media (max-width: 860px) {
   .qala-event-hero {
     height: auto;
+    aspect-ratio: 16 / 9;
     border-radius: 22px;
-    aspect-ratio: 4 / 3;
     margin-bottom: 20px;
   }
 }

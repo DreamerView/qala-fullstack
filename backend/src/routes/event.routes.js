@@ -10,9 +10,9 @@ const router = Router()
 
 router.get('/categories', getEventCategories)
 router.get('/:id',authMiddleware, getEventById)
-router.post('/create', createEvent)
-router.put('/update/:id', updateEvent)
-router.delete('/delete/:id', deleteEvent)
+router.post('/create',authMiddleware, createEvent)
+router.put('/update/:id',authMiddleware, updateEvent)
+router.delete('/delete/:id',authMiddleware, deleteEvent)
 router.post('/join/:eventId', authMiddleware, toggleEventParticipation)
 
 export default router

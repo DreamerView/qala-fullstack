@@ -12,26 +12,32 @@ const API_ERROR_MESSAGES = {
   'Invalid token': 'Недействительная сессия. Войдите снова.',
   'User not found': 'Пользователь не найден.',
 
-  'Refresh token is missing': 'Сессия отсутствует. Войдите снова.',
-  'Invalid refresh token': 'Сессия недействительна. Войдите снова.',
-  'Refresh token expired': 'Сессия истекла. Войдите снова.',
+  'Phone, nickname and password are required':
+    'Заполните телефон, никнейм и пароль.',
 
-  'Phone, nickname and password are required': 'Заполните телефон, никнейм и пароль.',
-  'Login and password are required': 'Введите логин и пароль.',
-  'Password must be at least 6 characters': 'Пароль должен быть минимум 6 символов.',
+  'Login and password are required':
+    'Введите логин и пароль.',
 
-  'Invalid field': 'Некорректное поле для проверки.',
-  'Value is required': 'Значение обязательно для проверки.',
-  'Route not found': 'Маршрут не найден.',
-  'Internal server error': 'Внутренняя ошибка сервера.',
+  'Password must be at least 6 characters':
+    'Пароль должен быть минимум 6 символов.',
+
+  'Invalid field':
+    'Некорректное поле для проверки.',
+
+  'Value is required':
+    'Значение обязательно для проверки.',
+
+  'Route not found':
+    'Маршрут не найден.',
+
+  'Internal server error':
+    'Внутренняя ошибка сервера.',
 }
 
 const user = ref(null)
 const isLoading = ref(false)
 const error = ref('')
 const isInitialized = ref(false)
-
-let refreshPromise = null
 
 function translateApiError(message, fallback = 'Произошла ошибка.') {
   return API_ERROR_MESSAGES[message] || message || fallback
@@ -45,29 +51,21 @@ function clearSession() {
   user.value = null
 }
 
-function isAuthError(message) {
-  return [
-    'Unauthorized',
-    'Token is required',
-    'Token expired',
-    'Invalid token',
-    'Refresh token is missing',
-    'Invalid refresh token',
-    'Refresh token expired',
-  ].includes(message)
-}
-
 async function request(url, options = {}) {
-  const headers = {
-    Accept: 'application/json',
-    ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-    ...(options.headers || {}),
-  }
-
   const response = await fetch(url, {
     ...options,
-    headers,
     credentials: 'include',
+    cache: 'no-store',
+
+    headers: {
+      Accept: 'application/json',
+
+      ...(options.body
+        ? { 'Content-Type': 'application/json' }
+        : {}),
+
+      ...(options.headers || {}),
+    },
   })
 
   const data = await response.json().catch(() => ({
@@ -76,51 +74,15 @@ async function request(url, options = {}) {
   }))
 
   if (!response.ok || data.status === false) {
-    throw new Error(data.message || 'Ошибка запроса.')
+    const err = new Error(data.message || 'Ошибка запроса.')
+
+    err.status = response.status
+    err.data = data
+
+    throw err
   }
 
   return data
-}
-
-async function refreshSession() {
-  if (refreshPromise) {
-    return refreshPromise
-  }
-
-  refreshPromise = request('/api/auth/refresh', {
-    method: 'POST',
-  })
-    .then((response) => {
-      setSession(response.data)
-      return true
-    })
-    .catch(() => {
-      clearSession()
-      return false
-    })
-    .finally(() => {
-      refreshPromise = null
-    })
-
-  return refreshPromise
-}
-
-async function requestWithRefresh(url, options = {}) {
-  try {
-    return await request(url, options)
-  } catch (err) {
-    if (!isAuthError(err.message)) {
-      throw err
-    }
-
-    const refreshed = await refreshSession()
-
-    if (!refreshed) {
-      throw err
-    }
-
-    return request(url, options)
-  }
 }
 
 export function useAuth() {
@@ -139,6 +101,7 @@ export function useAuth() {
     try {
       const response = await request('/api/auth/login', {
         method: 'POST',
+
         body: JSON.stringify({
           login: payload.login,
           password: payload.password,
@@ -146,6 +109,7 @@ export function useAuth() {
       })
 
       setSession(response.data)
+
       isInitialized.value = true
 
       return true
@@ -170,6 +134,7 @@ export function useAuth() {
     try {
       const response = await request('/api/auth/register', {
         method: 'POST',
+
         body: JSON.stringify({
           phone: payload.phone,
           email: payload.email || null,
@@ -179,6 +144,7 @@ export function useAuth() {
       })
 
       setSession(response.data)
+
       isInitialized.value = true
 
       return true
@@ -201,21 +167,24 @@ export function useAuth() {
     clearError()
 
     try {
-      const response = await requestWithRefresh('/api/user/me', {
+      const response = await request('/api/user/me', {
         method: 'GET',
       })
 
       setSession(response.data)
+
       isInitialized.value = true
 
       return true
     } catch (err) {
       clearSession()
 
-      error.value = translateApiError(
-        err.message,
-        'Не удалось получить пользователя.'
-      )
+      if (err.status !== 401 && err.status !== 403) {
+        error.value = translateApiError(
+          err.message,
+          'Не удалось получить пользователя.'
+        )
+      }
 
       isInitialized.value = true
 
@@ -234,9 +203,12 @@ export function useAuth() {
         value,
       })
 
-      const response = await request(`/api/auth/check?${params.toString()}`, {
-        method: 'GET',
-      })
+      const response = await request(
+        `/api/auth/check?${params.toString()}`,
+        {
+          method: 'GET',
+        }
+      )
 
       return response.data
     } catch (err) {
@@ -258,9 +230,10 @@ export function useAuth() {
         method: 'POST',
       })
     } catch {
-      // Даже если backend временно недоступен, локальное состояние очищаем.
+      // ignore
     } finally {
       clearSession()
+
       isInitialized.value = true
       isLoading.value = false
     }
@@ -276,6 +249,7 @@ export function useAuth() {
 
   return {
     user: readonly(user),
+
     isLoading: readonly(isLoading),
     error: readonly(error),
     isInitialized: readonly(isInitialized),
@@ -284,11 +258,13 @@ export function useAuth() {
 
     signIn,
     signUp,
+
     fetchCurrentUser,
     checkAuthField,
-    refreshSession,
+
     initializeAuth,
     logout,
+
     clearError,
   }
 }
